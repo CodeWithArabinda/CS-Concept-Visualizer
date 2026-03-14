@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Search Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .array-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 40px 20px;
+            min-height: 200px;
+            overflow-x: auto;
+        }
+
+        .element-block {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #1e293b;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* Color States */
+        .block-active { background-color: #dbeafe; border-color: #3b82f6; color: #1e40af; } /* Blue range */
+        .block-mid { background-color: #fef3c7; border-color: #f59e0b; color: #92400e; transform: scale(1.1); z-index: 10; } /* Yellow mid */
+        .block-found { background-color: #dcfce7; border-color: #22c55e; color: #166534; transform: scale(1.1); } /* Green found */
+        .block-discarded { background-color: #f1f5f9; border-color: #cbd5e1; color: #94a3b8; opacity: 0.6; } /* Grey discarded */
+
+        /* Pointers */
+        .pointer {
+            position: absolute;
+            font-size: 0.7rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            white-space: nowrap;
+        }
+
+        .pointer-l { color: #3b82f6; bottom: -25px; left: 50%; transform: translateX(-50%); }
+        .pointer-r { color: #ef4444; bottom: -25px; left: 50%; transform: translateX(-50%); }
+        .pointer-mid { color: #f59e0b; top: -25px; left: 50%; transform: translateX(-50%); }
+
+        .explanation-card {
+            border-left: 4px solid #3b82f6;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .code-font { font-family: 'Fira Code', monospace; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-black text-slate-800 tracking-tight">Binary Search Visualizer</h1>
+            <p class="text-slate-500 mt-2 font-medium italic">Efficiency through Logarithmic Division</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left: Controls & Complexity -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Controls -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 text-slate-700">Search Controls</h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Sorted Array (comma separated)</label>
+                            <input type="text" id="arrayInput" placeholder="2, 5, 8, 12, 16, 23, 38" 
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Target Value</label>
+                            <input type="number" id="targetInput" placeholder="Enter target" 
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all text-sm">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="generateSortedArray()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg transition-all">
+                                Generate Sorted
+                            </button>
+                            <button onclick="resetSearch()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg transition-all">
+                                Reset
+                            </button>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-100 flex flex-col gap-2">
+                            <button onclick="startSearch()" id="btnStart" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center">
+                                Start Search
+                            </button>
+                            <button onclick="nextStep()" id="btnNext" disabled class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                Next Step
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complexity Display -->
+                <div class="bg-slate-900 text-slate-300 p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-lg font-bold mb-4 text-white">Efficiency Analysis</h2>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between border-b border-slate-800 pb-2">
+                            <span>Best Case</span>
+                            <span class="text-emerald-400 font-bold">O(1)</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-800 pb-2">
+                            <span>Average Case</span>
+                            <span class="text-blue-400 font-bold">O(log n)</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-800 pb-2">
+                            <span>Worst Case</span>
+                            <span class="text-blue-400 font-bold">O(log n)</span>
+                        </div>
+                    </div>
+                    <div class="mt-6 space-y-3">
+                        <div class="flex justify-between text-xs uppercase font-black tracking-widest text-slate-500">
+                            <span>Live Stats</span>
+                        </div>
+                        <div class="flex justify-between code-font">
+                            <span>Comparisons:</span>
+                            <span id="statComp" class="text-amber-400 font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between code-font">
+                            <span>Search Range:</span>
+                            <span id="statRange" class="text-blue-400 font-bold">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Visualization & Explanations -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Visual Array -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div id="arrayContainer" class="array-container">
+                        <!-- Elements injected here -->
+                    </div>
+                    <div class="flex justify-center gap-10 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-4">
+                        <span class="flex items-center"><div class="w-3 h-3 bg-blue-400 rounded-sm mr-1"></div> Active Range</span>
+                        <span class="flex items-center"><div class="w-3 h-3 bg-amber-400 rounded-sm mr-1"></div> Midpoint</span>
+                        <span class="flex items-center"><div class="w-3 h-3 bg-slate-200 rounded-sm mr-1"></div> Discarded</span>
+                    </div>
+                </div>
+
+                <!-- Explanation Panel -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Step-by-Step Explanation</h2>
+                    <div id="explanationArea" class="min-h-[60px] flex items-center">
+                        <div class="explanation-card bg-blue-50 p-4 rounded-xl text-blue-800 text-sm w-full">
+                            Input a sorted array and a target value to begin the visualization.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Educational Section -->
+                <div class="bg-indigo-600 text-white p-8 rounded-2xl shadow-xl">
+                    <h2 class="text-2xl font-bold mb-4">Why Binary Search?</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <div class="space-y-2">
+                            <h3 class="font-bold text-indigo-200">The Power of log(n)</h3>
+                            <p class="opacity-90">In a list of 1 million items, Linear Search might check all 1,000,000. Binary Search only needs 20 checks.</p>
+                        </div>
+                        <div class="space-y-2">
+                            <h3 class="font-bold text-indigo-200">The Sorted Constraint</h3>
+                            <p class="opacity-90">Binary Search relies on order to determine which half of the data can be safely ignored. If it's unsorted, we can't make that assumption.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Toast Messaging -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastMsg" class="bg-slate-900 text-white px-8 py-3 rounded-full shadow-2xl font-bold"></div>
+    </div>
+
+    <script>
+        // State
+        let array = [2, 5, 8, 12, 16, 23, 38, 45, 50, 62];
+        let target = null;
+        let left = 0;
+        let right = 0;
+        let mid = -1;
+        let comparisons = 0;
+        let isSearching = false;
+        let searchFinished = false;
+
+        const container = document.getElementById('arrayContainer');
+        const input = document.getElementById('arrayInput');
+        const targetInput = document.getElementById('targetInput');
+        const explanationArea = document.getElementById('explanationArea');
+        const statComp = document.getElementById('statComp');
+        const statRange = document.getElementById('statRange');
+        const btnNext = document.getElementById('btnNext');
+
+        /**
+         * Initialize Visuals
+         */
+        function init() {
+            render();
+        }
+
+        function generateSortedArray() {
+            const size = 10;
+            const temp = Array.from({ length: size }, () => Math.floor(Math.random() * 90) + 1);
+            array = temp.sort((a, b) => a - b);
+            input.value = array.join(', ');
+            resetSearch();
+            updateExplanation("Generated a new random sorted array. Pick a target to search.", "blue");
+        }
+
+        function resetSearch() {
+            isSearching = false;
+            searchFinished = false;
+            left = 0;
+            right = array.length - 1;
+            mid = -1;
+            comparisons = 0;
+            btnNext.disabled = true;
+            updateStats();
+            render();
+            updateExplanation("Visualizer reset. Enter target and click 'Start Search'.", "blue");
+        }
+
+        function updateStats() {
+            statComp.textContent = comparisons;
+            statRange.textContent = isSearching ? (right - left + 1) : 0;
+        }
+
+        /**
+         * Render function for the array blocks
+         */
+        function render(foundIdx = -1) {
+            container.innerHTML = '';
+            array.forEach((val, idx) => {
+                const block = document.createElement('div');
+                block.className = 'element-block';
+                block.textContent = val;
+
+                // Visual State Styling
+                if (foundIdx === idx) {
+                    block.classList.add('block-found');
+                } else if (idx === mid) {
+                    block.classList.add('block-mid');
+                } else if (isSearching && idx >= left && idx <= right) {
+                    block.classList.add('block-active');
+                } else if (isSearching) {
+                    block.classList.add('block-discarded');
+                }
+
+                // Add Pointers
+                if (isSearching && !searchFinished) {
+                    if (idx === left) {
+                        const p = document.createElement('div');
+                        p.className = 'pointer pointer-l';
+                        p.innerHTML = '▲<br>L';
+                        block.appendChild(p);
+                    }
+                    if (idx === right) {
+                        const p = document.createElement('div');
+                        p.className = 'pointer pointer-r';
+                        p.innerHTML = '▲<br>R';
+                        block.appendChild(p);
+                    }
+                    if (idx === mid) {
+                        const p = document.createElement('div');
+                        p.className = 'pointer pointer-mid';
+                        p.innerHTML = 'MID<br>▼';
+                        block.appendChild(p);
+                    }
+                }
+
+                container.appendChild(block);
+            });
+        }
+
+        /**
+         * Search Logic Initiation
+         */
+        function startSearch() {
+            // Validation
+            const val = input.value.trim();
+            if (val) {
+                const parsed = val.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                
+                // Check if sorted
+                for(let k = 0; k < parsed.length - 1; k++) {
+                    if(parsed[k] > parsed[k+1]) {
+                        showToast("Binary search requires a sorted array!", "error");
+                        updateExplanation("Error: The provided array is not sorted.", "red");
+                        return;
+                    }
+                }
+                array = parsed;
+            }
+
+            target = parseInt(targetInput.value);
+            if (isNaN(target)) {
+                showToast("Please enter a target value", "error");
+                return;
+            }
+
+            // Init state
+            isSearching = true;
+            searchFinished = false;
+            left = 0;
+            right = array.length - 1;
+            mid = Math.floor((left + right) / 2);
+            comparisons = 0;
+            btnNext.disabled = false;
+            
+            updateStats();
+            render();
+            updateExplanation(`Search started. Calculating initial middle index. L=${left}, R=${right}. Mid is ${mid}.`, "blue");
+        }
+
+        /**
+         * The Step-by-Step execution
+         */
+        function nextStep() {
+            if (searchFinished) return;
+
+            if (left > right) {
+                searchFinished = true;
+                btnNext.disabled = true;
+                showToast("Target not found", "error");
+                updateExplanation(`Left index (${left}) is now greater than Right index (${right}). Target ${target} is not in the array.`, "red");
+                render();
+                return;
+            }
+
+            comparisons++;
+            updateStats();
+            const midValue = array[mid];
+
+            if (midValue === target) {
+                searchFinished = true;
+                btnNext.disabled = true;
+                render(mid);
+                updateExplanation(`Found target ${target} at index ${mid}!`, "emerald");
+                showToast(`Success! Found at index ${mid}`);
+            } else if (midValue < target) {
+                updateExplanation(`${midValue} is smaller than ${target}. Discarding left half. Updating L to mid + 1 (${mid + 1}).`, "amber");
+                left = mid + 1;
+                mid = Math.floor((left + right) / 2);
+                render();
+            } else {
+                updateExplanation(`${midValue} is larger than ${target}. Discarding right half. Updating R to mid - 1 (${mid - 1}).`, "amber");
+                right = mid - 1;
+                mid = Math.floor((left + right) / 2);
+                render();
+            }
+
+            updateStats();
+        }
+
+        /**
+         * UI Helpers
+         */
+        function updateExplanation(text, color) {
+            const colors = {
+                blue: 'bg-blue-50 text-blue-800 border-blue-500',
+                amber: 'bg-amber-50 text-amber-800 border-amber-500',
+                red: 'bg-red-50 text-red-800 border-red-500',
+                emerald: 'bg-emerald-50 text-emerald-800 border-emerald-500'
+            };
+            explanationArea.innerHTML = `<div class="explanation-card ${colors[color]} p-4 rounded-xl text-sm w-full">${text}</div>`;
+        }
+
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.textContent = msg;
+            toastMsg.className = type === "error" 
+                ? "bg-red-600 text-white px-8 py-3 rounded-full shadow-2xl font-bold" 
+                : "bg-slate-900 text-white px-8 py-3 rounded-full shadow-2xl font-bold";
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // Init App
+        init();
+    </script>
+</body>
+</html>

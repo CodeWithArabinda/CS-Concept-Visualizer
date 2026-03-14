@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warshall Algorithm Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+        :root {
+            --color-k: #fbbf24; /* yellow-400 */
+            --color-check: #60a5fa; /* blue-400 */
+            --color-found: #34d399; /* emerald-400 */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .matrix-cell {
+            transition: all 0.3s ease;
+            width: 45px;
+            height: 45px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fira Code', monospace;
+            font-weight: 500;
+        }
+
+        .cell-k { background-color: #fef3c7; color: #92400e; border-color: #fbbf24; }
+        .cell-checking { background-color: #dbeafe; color: #1e40af; border-color: #60a5fa; }
+        .cell-success { background-color: #d1fae5; color: #065f46; border-color: #34d399; animation: pulse 0.5s ease; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .node { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .node-k { fill: var(--color-k); stroke: #b45309; stroke-width: 3px; }
+        .node-active { fill: var(--color-check); stroke: #1e40af; stroke-width: 2px; }
+
+        .edge { transition: stroke 0.3s, stroke-width 0.3s; }
+        .edge-checking { stroke: var(--color-check); stroke-width: 3px; stroke-dasharray: 5; animation: dash 1s linear infinite; }
+        .edge-found { stroke: var(--color-found); stroke-width: 3px; }
+
+        @keyframes dash {
+            to { stroke-dashoffset: -10; }
+        }
+
+        #log-panel::-webkit-scrollbar { width: 4px; }
+        #log-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-slate-800 tracking-tight">Warshall Algorithm Visualizer</h1>
+            <p class="text-slate-500 mt-2">Computing Transitive Closure via Dynamic Programming</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Controls & Metrics -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        Controls
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Vertices: <span id="vertex-count-label">4</span></label>
+                            <input type="range" id="vertex-count" min="3" max="6" value="4" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-2">
+                            <button id="btn-generate" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-xl transition-all">Generate New Graph</button>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button id="btn-next" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl shadow-lg shadow-blue-200 transition-all">Next Step</button>
+                                <button id="btn-auto" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2 rounded-xl transition-all">Auto Run</button>
+                            </div>
+                            <button id="btn-reset" class="bg-slate-100 hover:bg-slate-200 text-slate-500 font-medium py-2 rounded-xl transition-all">Reset Matrix</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Algorithm Status</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <span class="text-xs text-slate-400 block">Intermediate (k)</span>
+                            <span id="stat-k" class="text-2xl font-bold text-amber-400">-</span>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <span class="text-xs text-slate-400 block">Matrix Updates</span>
+                            <span id="stat-updates" class="text-2xl font-bold text-emerald-400">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Step Log</h2>
+                    <div id="log-panel" class="h-40 overflow-y-auto space-y-2 text-sm text-slate-600 font-medium pr-2">
+                        <!-- Logs here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Visualization Area -->
+            <div class="lg:col-span-8 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Graph View -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h2 class="text-lg font-bold text-slate-700 mb-4">Directed Graph</h2>
+                        <div class="aspect-square w-full relative">
+                            <svg id="graph-svg" viewBox="0 0 400 400" class="w-full h-full">
+                                <defs>
+                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                                    </marker>
+                                    <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                                    </marker>
+                                    <marker id="arrowhead-emerald" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#10b981" />
+                                    </marker>
+                                </defs>
+                                <g id="edges-group"></g>
+                                <g id="nodes-group"></g>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Matrix View -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+                        <h2 class="text-lg font-bold text-slate-700 mb-4">Adjacency Matrix</h2>
+                        <div id="matrix-container" class="flex flex-col items-center justify-center h-full min-h-[300px]">
+                            <!-- Matrix here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Educational Info -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-blue-600">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">How it works</h3>
+                    <p class="text-slate-600 leading-relaxed text-sm">
+                        Warshall's algorithm iterates through every vertex <strong>k</strong> as an intermediate node. For every pair of vertices <strong>(i, j)</strong>, it checks if a path exists from <strong>i</strong> to <strong>j</strong> through <strong>k</strong>. 
+                        If node <em>i</em> can reach <em>k</em>, and <em>k</em> can reach <em>j</em>, then <em>i</em> can reach <em>j</em>.
+                    </p>
+                    <div class="mt-4 p-3 bg-slate-50 rounded-lg font-mono text-xs text-blue-800">
+                        if (matrix[i][j] == 0 && matrix[i][k] == 1 && matrix[k][j] == 1) <br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;matrix[i][j] = 1;
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * WARSHALL VISUALIZER LOGIC
+         */
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        let N = 4;
+        let adjMatrix = [];
+        let originalAdj = [];
+        let k = 0, i = 0, j = 0;
+        let isComplete = false;
+        let updates = 0;
+        let autoInterval = null;
+
+        const graphSvg = document.getElementById('graph-svg');
+        const edgesGroup = document.getElementById('edges-group');
+        const nodesGroup = document.getElementById('nodes-group');
+        const matrixContainer = document.getElementById('matrix-container');
+        const logPanel = document.getElementById('log-panel');
+        const statK = document.getElementById('stat-k');
+        const statUpdates = document.getElementById('stat-updates');
+        const vertexCountInput = document.getElementById('vertex-count');
+        const vertexCountLabel = document.getElementById('vertex-count-label');
+
+        // Initialization
+        function init() {
+            N = parseInt(vertexCountInput.value);
+            vertexCountLabel.innerText = N;
+            adjMatrix = Array.from({ length: N }, () => Array(N).fill(0));
+            
+            // Randomly seed edges (density ~30%)
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    if (r !== c && Math.random() < 0.3) {
+                        adjMatrix[r][c] = 1;
+                    }
+                }
+            }
+            originalAdj = adjMatrix.map(row => [...row]);
+            resetAlgorithm();
+            render();
+        }
+
+        function resetAlgorithm() {
+            k = 0; i = 0; j = 0;
+            isComplete = false;
+            updates = 0;
+            adjMatrix = originalAdj.map(row => [...row]);
+            logPanel.innerHTML = '<div class="text-slate-400 italic">Algorithm ready. Click Next Step.</div>';
+            statK.innerText = "-";
+            statUpdates.innerText = "0";
+            stopAuto();
+            render();
+        }
+
+        function stopAuto() {
+            if (autoInterval) {
+                clearInterval(autoInterval);
+                autoInterval = null;
+                document.getElementById('btn-auto').innerText = "Auto Run";
+                document.getElementById('btn-auto').classList.replace('bg-amber-600', 'bg-slate-800');
+            }
+        }
+
+        /**
+         * CORE STEP LOGIC
+         */
+        function nextStep() {
+            if (isComplete) return;
+
+            // Logic: if path i -> j through k exists
+            const source = i;
+            const target = j;
+            const intermediate = k;
+
+            let updated = false;
+            let msg = `Checking: <strong>${alphabet[source]} → ${alphabet[target]}</strong> through <strong>${alphabet[intermediate]}</strong>...`;
+
+            if (adjMatrix[source][target] === 1) {
+                msg = `Path <strong>${alphabet[source]} → ${alphabet[target]}</strong> already exists.`;
+            } else if (adjMatrix[source][intermediate] === 1 && adjMatrix[intermediate][target] === 1) {
+                adjMatrix[source][target] = 1;
+                updates++;
+                updated = true;
+                msg = `<strong>New Path!</strong> ${alphabet[source]} can now reach ${alphabet[target]} through ${alphabet[intermediate]}.`;
+                statUpdates.innerText = updates;
+            }
+
+            statK.innerText = alphabet[k];
+            addLog(msg, updated ? 'success' : 'info');
+            render(source, target, intermediate, updated);
+
+            // Increment Indices
+            j++;
+            if (j >= N) {
+                j = 0;
+                i++;
+                if (i >= N) {
+                    i = 0;
+                    k++;
+                    if (k >= N) {
+                        isComplete = true;
+                        addLog("<strong>Transitive Closure Complete!</strong>", "success");
+                        stopAuto();
+                    }
+                }
+            }
+        }
+
+        /**
+         * RENDERING FUNCTIONS
+         */
+        function render(curI = -1, curJ = -1, curK = -1, curUpdated = false) {
+            renderMatrix(curI, curJ, curK, curUpdated);
+            renderGraph(curI, curJ, curK, curUpdated);
+        }
+
+        function renderMatrix(curI, curJ, curK, curUpdated) {
+            let html = '<table class="border-collapse"><tr><td class="matrix-cell border-none"></td>';
+            // Header row
+            for (let c = 0; c < N; c++) html += `<td class="matrix-cell bg-slate-50 font-bold text-slate-400">${alphabet[c]}</td>`;
+            html += '</tr>';
+
+            for (let r = 0; r < N; r++) {
+                html += `<tr><td class="matrix-cell bg-slate-50 font-bold text-slate-400">${alphabet[r]}</td>`;
+                for (let c = 0; c < N; c++) {
+                    let classes = "matrix-cell";
+                    if (r === curK || c === curK) classes += " cell-k";
+                    if (r === curI && c === curJ) {
+                        classes += curUpdated ? " cell-success" : " cell-checking";
+                    }
+                    html += `<td class="${classes}">${adjMatrix[r][c]}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            matrixContainer.innerHTML = html;
+        }
+
+        function renderGraph(curI, curJ, curK, curUpdated) {
+            const centerX = 200, centerY = 200, radius = 130;
+            const nodes = [];
+            
+            nodesGroup.innerHTML = '';
+            edgesGroup.innerHTML = '';
+
+            // Calculate Node Positions
+            for (let v = 0; v < N; v++) {
+                const angle = (v / N) * 2 * Math.PI - Math.PI / 2;
+                nodes.push({
+                    x: centerX + radius * Math.cos(angle),
+                    y: centerY + radius * Math.sin(angle)
+                });
+            }
+
+            // Draw Edges
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    if (adjMatrix[r][c] === 1) {
+                        const start = nodes[r], end = nodes[c];
+                        if (r === c) continue; // Skip loops for clarity
+
+                        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute("x1", start.x);
+                        line.setAttribute("y1", start.y);
+                        line.setAttribute("x2", end.x);
+                        line.setAttribute("y2", end.y);
+                        
+                        let strokeColor = "#94a3b8";
+                        let marker = "url(#arrowhead)";
+                        let className = "edge";
+
+                        // Highlight checking paths i->k and k->j
+                        const isPrimaryCheck = (r === curI && c === curK) || (r === curK && c === curJ);
+                        const isNewPath = (r === curI && c === curJ && curUpdated);
+
+                        if (isNewPath) {
+                            strokeColor = "#10b981";
+                            marker = "url(#arrowhead-emerald)";
+                            className += " edge-found";
+                        } else if (isPrimaryCheck) {
+                            strokeColor = "#3b82f6";
+                            marker = "url(#arrowhead-blue)";
+                            className += " edge-checking";
+                        } else if (originalAdj[r][c] === 0) {
+                            strokeColor = "#10b981"; // Inferred path
+                            marker = "url(#arrowhead-emerald)";
+                        }
+
+                        line.setAttribute("stroke", strokeColor);
+                        line.setAttribute("marker-end", marker);
+                        line.setAttribute("class", className);
+                        line.setAttribute("stroke-width", "2");
+                        edgesGroup.appendChild(line);
+                    }
+                }
+            }
+
+            // Draw Nodes
+            nodes.forEach((pos, idx) => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("class", "node");
+                
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", pos.x);
+                circle.setAttribute("cy", pos.y);
+                circle.setAttribute("r", "20");
+                circle.setAttribute("fill", "white");
+                circle.setAttribute("stroke", "#cbd5e1");
+                circle.setAttribute("stroke-width", "2");
+
+                if (idx === curK) circle.classList.add("node-k");
+                else if (idx === curI || idx === curJ) circle.classList.add("node-active");
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", pos.x);
+                text.setAttribute("y", pos.y + 5);
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("class", "text-sm font-bold fill-slate-700 pointer-events-none");
+                text.textContent = alphabet[idx];
+
+                g.appendChild(circle);
+                g.appendChild(text);
+                nodesGroup.appendChild(g);
+            });
+        }
+
+        function addLog(msg, type) {
+            const div = document.createElement('div');
+            div.className = "pb-2 border-b border-slate-50 last:border-0 animate-in fade-in slide-in-from-left-2 duration-300";
+            if (type === 'success') div.classList.add('text-emerald-600');
+            div.innerHTML = msg;
+            logPanel.prepend(div);
+        }
+
+        /**
+         * EVENTS
+         */
+        vertexCountInput.addEventListener('input', init);
+        document.getElementById('btn-generate').addEventListener('click', init);
+        document.getElementById('btn-next').addEventListener('click', () => { stopAuto(); nextStep(); });
+        document.getElementById('btn-reset').addEventListener('click', resetAlgorithm);
+        
+        document.getElementById('btn-auto').addEventListener('click', () => {
+            if (autoInterval) {
+                stopAuto();
+            } else {
+                if (isComplete) resetAlgorithm();
+                document.getElementById('btn-auto').innerText = "Pause";
+                document.getElementById('btn-auto').classList.replace('bg-slate-800', 'bg-amber-600');
+                autoInterval = setInterval(nextStep, 500);
+            }
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

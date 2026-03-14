@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linked List Data Structure Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        /* Node Visualization Styles */
+        .node-container {
+            display: flex;
+            align-items: center;
+            animation: nodePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin-right: 40px;
+            position: relative;
+        }
+
+        @keyframes nodePop {
+            0% { opacity: 0; transform: scale(0.5); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .node-box {
+            display: flex;
+            border: 3px solid #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .node-data {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            background-color: white;
+            color: #1e293b;
+            border-right: 2px solid #1e293b;
+        }
+
+        .node-next {
+            width: 40px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #e2e8f0;
+            color: #64748b;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            position: relative;
+        }
+
+        /* Pointer Dot */
+        .node-next::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background-color: #475569;
+            border-radius: 50%;
+        }
+
+        /* Arrow Graphics */
+        .arrow-svg {
+            position: absolute;
+            right: -45px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 20px;
+            pointer-events: none;
+        }
+
+        /* Highlight States */
+        .node-active .node-box {
+            border-color: #3b82f6;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+        }
+        .node-active .node-data { border-right-color: #3b82f6; background-color: #eff6ff; }
+
+        .node-traversing .node-box {
+            border-color: #f59e0b;
+            background-color: #fffbeb;
+            transform: scale(1.1);
+        }
+
+        .node-deleting .node-box {
+            border-color: #ef4444;
+            opacity: 0.5;
+            transform: scale(0.8);
+        }
+
+        /* Head Pointer Label */
+        .head-label {
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .null-node {
+            font-family: 'Fira Code', monospace;
+            font-weight: 700;
+            color: #94a3b8;
+            padding: 10px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 6px;
+        }
+
+        .explanation-card {
+            border-left: 4px solid #3b82f6;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight">Linked List Visualizer</h1>
+                <p class="text-slate-500 font-medium">Singly Linked List Interactive Simulation</p>
+            </div>
+            <div class="flex gap-2">
+                <span class="bg-white border border-slate-200 px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">
+                    Complexity: O(N)
+                </span>
+                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+                    Type: Singly Linked
+                </span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left: Controls & Education -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Controls -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 text-slate-700">List Controls</h2>
+                    <div class="space-y-4">
+                        <div class="relative">
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Node Data</label>
+                            <input type="number" id="nodeInput" placeholder="Value (e.g. 42)" 
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="insertAtBeginning()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-all active:scale-95">
+                                Add to Start
+                            </button>
+                            <button onclick="insertAtEnd()" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold py-2 px-3 rounded-lg transition-all active:scale-95">
+                                Add to End
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="deleteNode()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-sm font-bold py-2 px-3 rounded-lg transition-all active:scale-95">
+                                Delete Value
+                            </button>
+                            <button onclick="traverseList()" class="bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200 text-sm font-bold py-2 px-3 rounded-lg transition-all active:scale-95">
+                                Traverse
+                            </button>
+                        </div>
+
+                        <button onclick="resetList()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold py-2 rounded-lg transition-colors">
+                            Reset Visualizer
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Educational Context -->
+                <div class="bg-slate-800 text-slate-100 p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-lg font-bold mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Why Linked Lists?
+                    </h2>
+                    <div class="space-y-3 text-sm leading-relaxed opacity-90">
+                        <p><strong>Definition:</strong> A collection of <em>nodes</em> where each node contains data and a <em>pointer</em> to the next node.</p>
+                        <p><strong>Dynamic Size:</strong> Unlike arrays, linked lists can grow or shrink in memory without needing to be reallocated.</p>
+                        <p><strong>Analogy:</strong> Think of a <em>scavenger hunt</em> or a <em>train</em>. Each clue (or carriage) leads you to the next one!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Visualizer & Explanation -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Visualization Canvas -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 min-h-[400px] flex flex-col">
+                    <div class="flex items-center justify-between mb-10">
+                        <h2 class="text-lg font-bold text-slate-700">Memory Layout</h2>
+                        <div id="listStats" class="text-xs font-mono text-slate-400">Length: 0</div>
+                    </div>
+
+                    <div id="visualizerCanvas" class="flex flex-wrap items-center gap-y-16 py-10 min-h-[150px]">
+                        <!-- Nodes will be rendered here -->
+                        <div class="null-node">List is empty</div>
+                    </div>
+                </div>
+
+                <!-- Explanation Panel -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Step-by-Step Logic</h2>
+                    <div id="explanationContainer" class="space-y-3 min-h-[100px]">
+                        <div class="explanation-card bg-blue-50 p-4 rounded-xl text-blue-800 text-sm">
+                            Welcome! Enter a value and use the controls to build your Linked List.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Toast -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastMsg" class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-sm"></div>
+    </div>
+
+    <script>
+        // Data Structures
+        class Node {
+            constructor(value) {
+                this.value = value;
+                this.next = null;
+                this.id = Math.random().toString(36).substr(2, 9); // Unique ID for DOM mapping
+            }
+        }
+
+        class LinkedList {
+            constructor() {
+                this.head = null;
+                this.length = 0;
+            }
+
+            addAtBeginning(value) {
+                const newNode = new Node(value);
+                newNode.next = this.head;
+                this.head = newNode;
+                this.length++;
+                return newNode;
+            }
+
+            addAtEnd(value) {
+                const newNode = new Node(value);
+                if (!this.head) {
+                    this.head = newNode;
+                } else {
+                    let current = this.head;
+                    while (current.next) {
+                        current = current.next;
+                    }
+                    current.next = newNode;
+                }
+                this.length++;
+                return newNode;
+            }
+
+            removeByValue(value) {
+                if (!this.head) return null;
+                
+                if (this.head.value == value) {
+                    const removed = this.head;
+                    this.head = this.head.next;
+                    this.length--;
+                    return removed;
+                }
+
+                let current = this.head;
+                while (current.next && current.next.value != value) {
+                    current = current.next;
+                }
+
+                if (current.next) {
+                    const removed = current.next;
+                    current.next = current.next.next;
+                    this.length--;
+                    return removed;
+                }
+                return null;
+            }
+        }
+
+        // Global State
+        const list = new LinkedList();
+        const canvas = document.getElementById('visualizerCanvas');
+        const input = document.getElementById('nodeInput');
+        const explanationContainer = document.getElementById('explanationContainer');
+        const stats = document.getElementById('listStats');
+
+        /**
+         * Core Render Logic
+         */
+        function render(activeId = null, traversingId = null, deletingId = null) {
+            canvas.innerHTML = '';
+            
+            if (!list.head) {
+                canvas.innerHTML = '<div class="null-node">List is empty</div>';
+                stats.textContent = 'Length: 0';
+                return;
+            }
+
+            let current = list.head;
+            let index = 0;
+
+            while (current) {
+                const nodeEl = document.createElement('div');
+                nodeEl.className = 'node-container';
+                if (current.id === activeId) nodeEl.classList.add('node-active');
+                if (current.id === traversingId) nodeEl.classList.add('node-traversing');
+                if (current.id === deletingId) nodeEl.classList.add('node-deleting');
+
+                nodeEl.innerHTML = `
+                    ${index === 0 ? '<div class="head-label">Head</div>' : ''}
+                    <div class="node-box">
+                        <div class="node-data">${current.value}</div>
+                        <div class="node-next"></div>
+                    </div>
+                    ${current.next ? `
+                        <svg class="arrow-svg" viewBox="0 0 50 20">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#475569" />
+                                </marker>
+                            </defs>
+                            <line x1="0" y1="10" x2="35" y2="10" stroke="#475569" stroke-width="2" marker-end="url(#arrowhead)" />
+                        </svg>
+                    ` : '<div class="ml-4 font-mono text-xs text-slate-400">NULL</div>'}
+                `;
+
+                canvas.appendChild(nodeEl);
+                current = current.next;
+                index++;
+            }
+
+            stats.textContent = `Length: ${list.length}`;
+        }
+
+        /**
+         * Operations
+         */
+        function insertAtBeginning() {
+            const val = input.value;
+            if (!validateInput(val)) return;
+
+            const newNode = list.addAtBeginning(val);
+            input.value = '';
+            addExplanation(`<strong>Insert At Beginning:</strong> Created a new node <code>${val}</code>. Set its <code>next</code> pointer to current head, then updated <code>Head</code>.`, "blue");
+            render(newNode.id);
+            showToast(`Inserted ${val} at start`);
+        }
+
+        function insertAtEnd() {
+            const val = input.value;
+            if (!validateInput(val)) return;
+
+            const newNode = list.addAtEnd(val);
+            input.value = '';
+            addExplanation(`<strong>Insert At End:</strong> Navigated to the end of the list and attached new node <code>${val}</code>.`, "slate");
+            render(newNode.id);
+            showToast(`Inserted ${val} at end`);
+        }
+
+        async function deleteNode() {
+            const val = input.value;
+            if (!validateInput(val)) return;
+
+            if (!list.head) {
+                showToast("List is empty!", "error");
+                return;
+            }
+
+            // Simple search visual
+            let current = list.head;
+            let found = false;
+            while(current) {
+                render(null, current.id);
+                await delay(400);
+                if(current.value == val) {
+                    found = true;
+                    break;
+                }
+                current = current.next;
+            }
+
+            if (found) {
+                render(null, null, current.id);
+                await delay(400);
+                const removed = list.removeByValue(val);
+                addExplanation(`<strong>Delete:</strong> Found value <code>${val}</code>. Updated the previous node's pointer to skip this node, effectively removing it from the sequence.`, "red");
+                render();
+                showToast(`Deleted value ${val}`);
+            } else {
+                addExplanation(`<strong>Search:</strong> Value <code>${val}</code> not found in list.`, "slate");
+                showToast("Value not found");
+                render();
+            }
+            input.value = '';
+        }
+
+        async function traverseList() {
+            if (!list.head) {
+                showToast("List is empty!", "error");
+                return;
+            }
+
+            addExplanation("<strong>Traversal:</strong> Starting from <code>Head</code>, we follow each <code>next</code> pointer until we hit <code>NULL</code>.", "amber");
+            
+            let current = list.head;
+            while (current) {
+                render(null, current.id);
+                showToast(`Visiting: ${current.value}`);
+                await delay(600);
+                current = current.next;
+            }
+            
+            render();
+            showToast("Traversal complete");
+        }
+
+        function resetList() {
+            list.head = null;
+            list.length = 0;
+            explanationContainer.innerHTML = '';
+            addExplanation("List reset to empty state.", "slate");
+            render();
+            showToast("Visualizer reset");
+        }
+
+        /**
+         * Helpers
+         */
+        function validateInput(val) {
+            if (val === '') {
+                showToast("Enter a value first");
+                return false;
+            }
+            return true;
+        }
+
+        function addExplanation(text, color) {
+            const div = document.createElement('div');
+            const colorMap = {
+                blue: 'bg-blue-50 text-blue-800 border-blue-500',
+                slate: 'bg-slate-50 text-slate-800 border-slate-500',
+                red: 'bg-red-50 text-red-800 border-red-500',
+                amber: 'bg-amber-50 text-amber-800 border-amber-500'
+            };
+            div.className = `explanation-card p-4 rounded-xl text-sm ${colorMap[color]}`;
+            div.innerHTML = text;
+            explanationContainer.prepend(div);
+            
+            // Limit to 5 logs
+            if (explanationContainer.children.length > 5) {
+                explanationContainer.removeChild(explanationContainer.lastChild);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initialize
+        render();
+
+        // Keyboard support
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') insertAtEnd();
+        });
+    </script>
+</body>
+</html>

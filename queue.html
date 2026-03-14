@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Data Structure Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+
+        /* The Queue Track */
+        .queue-track {
+            height: 120px;
+            width: 100%;
+            max-width: 800px;
+            border-top: 4px dashed #cbd5e1;
+            border-bottom: 4px dashed #cbd5e1;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+            position: relative;
+            background: white;
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        .queue-element {
+            min-width: 60px;
+            height: 60px;
+            background-color: #10b981;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid #059669;
+            flex-shrink: 0;
+        }
+
+        /* Animations */
+        @keyframes enqueueAnim {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .enqueue-active {
+            animation: enqueueAnim 0.5s ease-out forwards;
+        }
+
+        @keyframes dequeueAnim {
+            to { transform: translateX(-150px); opacity: 0; }
+        }
+
+        .dequeue-active {
+            animation: dequeueAnim 0.5s ease-in forwards;
+        }
+
+        .front-highlight {
+            background-color: #f59e0b !important;
+            border-color: #d97706 !important;
+            transform: scale(1.1);
+            z-index: 20;
+        }
+
+        /* Pointer Styles */
+        .pointer-label {
+            position: absolute;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            transition: all 0.5s ease;
+        }
+
+        .front-pointer { color: #ef4444; top: -30px; }
+        .rear-pointer { color: #3b82f6; bottom: -30px; }
+
+        .pointer-arrow {
+            position: absolute;
+            width: 2px;
+            height: 15px;
+            background: currentColor;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .front-pointer .pointer-arrow { bottom: -15px; }
+        .rear-pointer .pointer-arrow { top: -15px; }
+
+        .log-entry {
+            border-left: 4px solid #10b981;
+            animation: slideInLeft 0.3s ease;
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-black text-slate-800 tracking-tight">Queue Visualizer</h1>
+            <p class="text-slate-500 mt-2 font-medium">Visualizing the First In First Out (FIFO) Principle</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Sidebar: Controls & Info -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Controls Panel -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 text-slate-700 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        Controls
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <input type="number" id="queueInput" placeholder="Enter value" 
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-2">
+                            <button onclick="enqueue()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition-all transform active:scale-95">
+                                Enqueue (Add)
+                            </button>
+                            <button onclick="dequeue()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-all transform active:scale-95">
+                                Dequeue (Remove)
+                            </button>
+                            <button onclick="peekFront()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition-all transform active:scale-95">
+                                Front (Peek)
+                            </button>
+                        </div>
+
+                        <button onclick="resetQueue()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 px-4 rounded-lg transition-colors">
+                            Reset Queue
+                        </button>
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t border-slate-100">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-500">Occupancy:</span>
+                            <span id="occupancyText" class="font-bold text-emerald-600">0/10</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div id="progressBar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Educational Mode Panel -->
+                <div class="bg-emerald-900 text-emerald-50 p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-lg font-bold mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        Learning Guide
+                    </h2>
+                    <div class="space-y-3 text-sm leading-relaxed opacity-90">
+                        <p><strong>Definition:</strong> A linear data structure that follows the FIFO (First In First Out) principle.</p>
+                        <p><strong>FIFO:</strong> The first element added to the queue is the first one to be removed.</p>
+                        <p><strong>Real-world Example:</strong> A line of people waiting to buy tickets. The person at the front of the line is served first!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main: Visualization -->
+            <div class="lg:col-span-9 space-y-6">
+                <!-- Visual Canvas -->
+                <div class="bg-white p-12 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center min-h-[350px]">
+                    <div class="w-full flex justify-between mb-8 px-4">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Dequeue End (Front)</span>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Enqueue End (Rear)</span>
+                    </div>
+
+                    <div id="queueContainer" class="queue-track">
+                        <!-- Elements injected here -->
+                    </div>
+
+                    <div class="mt-12 grid grid-cols-2 gap-8 w-full max-w-lg">
+                        <div class="text-center p-3 bg-red-50 rounded-xl border border-red-100">
+                            <p class="text-[10px] uppercase font-black text-red-400">Front Pointer</p>
+                            <p class="text-sm font-semibold text-red-700">Index: <span id="frontIdx">-</span></p>
+                        </div>
+                        <div class="text-center p-3 bg-blue-50 rounded-xl border border-blue-100">
+                            <p class="text-[10px] uppercase font-black text-blue-400">Rear Pointer</p>
+                            <p class="text-sm font-semibold text-blue-700">Index: <span id="rearIdx">-</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explanation & Logs -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-700">Operation Log</h2>
+                        <span id="stepCounter" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">Steps: 0</span>
+                    </div>
+                    
+                    <div id="logArea" class="space-y-2 h-40 overflow-y-auto pr-2">
+                        <div class="text-slate-400 text-sm italic">Perform an operation to see the explanation...</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Message Toasts -->
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastMsg" class="bg-slate-800 text-white px-8 py-3 rounded-full shadow-2xl font-bold flex items-center">
+            <!-- Content here -->
+        </div>
+    </div>
+
+    <script>
+        const MAX_CAPACITY = 10;
+        let queue = [];
+        let steps = 0;
+
+        const container = document.getElementById('queueContainer');
+        const input = document.getElementById('queueInput');
+        const logArea = document.getElementById('logArea');
+        const frontIdxSpan = document.getElementById('frontIdx');
+        const rearIdxSpan = document.getElementById('rearIdx');
+        const occupancyText = document.getElementById('occupancyText');
+        const progressBar = document.getElementById('progressBar');
+        const stepCounter = document.getElementById('stepCounter');
+
+        /**
+         * Enqueue: Adds an element to the rear of the queue
+         */
+        function enqueue() {
+            const val = input.value.trim();
+            if (val === "") {
+                showToast("Please enter a value", "warning");
+                return;
+            }
+
+            if (queue.length >= MAX_CAPACITY) {
+                showToast("Queue Overflow!", "error");
+                addLog(`<strong>Overflow:</strong> Queue is at maximum capacity (${MAX_CAPACITY}).`, "red");
+                return;
+            }
+
+            queue.push(val);
+            input.value = "";
+            renderQueue('enqueue');
+            addLog(`<strong>Enqueue:</strong> Added <u>${val}</u> to the rear.`, "emerald");
+            showToast(`Enqueued: ${val}`);
+            incrementSteps();
+        }
+
+        /**
+         * Dequeue: Removes the front element from the queue
+         */
+        function dequeue() {
+            if (queue.length === 0) {
+                showToast("Queue Underflow!", "error");
+                addLog("<strong>Underflow:</strong> Cannot remove from an empty queue.", "red");
+                return;
+            }
+
+            const elements = document.querySelectorAll('.queue-element');
+            const frontEl = elements[0];
+            const val = queue[0];
+
+            frontEl.classList.add('dequeue-active');
+
+            setTimeout(() => {
+                queue.shift();
+                renderQueue('dequeue');
+                addLog(`<strong>Dequeue:</strong> Removed <u>${val}</u> from the front.`, "red");
+                showToast(`Dequeued: ${val}`);
+                incrementSteps();
+            }, 500);
+        }
+
+        /**
+         * Front: Visualizes the element at the head of the queue
+         */
+        function peekFront() {
+            if (queue.length === 0) {
+                showToast("Queue is empty", "warning");
+                return;
+            }
+
+            const elements = document.querySelectorAll('.queue-element');
+            const frontEl = elements[0];
+
+            frontEl.classList.add('front-highlight');
+            addLog(`<strong>Front:</strong> The element at the front is <u>${queue[0]}</u>.`, "amber");
+            showToast(`Front element is ${queue[0]}`);
+
+            setTimeout(() => {
+                frontEl.classList.remove('front-highlight');
+            }, 1500);
+        }
+
+        /**
+         * Resets the entire visualizer
+         */
+        function resetQueue() {
+            queue = [];
+            steps = 0;
+            stepCounter.textContent = `Steps: 0`;
+            renderQueue();
+            logArea.innerHTML = '<div class="text-slate-400 text-sm italic">Queue cleared. Ready for new operations.</div>';
+            showToast("Queue Reset");
+        }
+
+        /**
+         * Renders the queue blocks and pointer positions
+         */
+        function renderQueue(operationType) {
+            container.innerHTML = '';
+            
+            queue.forEach((val, index) => {
+                const el = document.createElement('div');
+                el.className = 'queue-element';
+                el.textContent = val;
+
+                if (operationType === 'enqueue' && index === queue.length - 1) {
+                    el.classList.add('enqueue-active');
+                }
+
+                // Add Front Pointer Label
+                if (index === 0) {
+                    const frontLabel = document.createElement('div');
+                    frontLabel.className = 'pointer-label front-pointer';
+                    frontLabel.innerHTML = 'Front <div class="pointer-arrow"></div>';
+                    el.appendChild(frontLabel);
+                }
+
+                // Add Rear Pointer Label
+                if (index === queue.length - 1) {
+                    const rearLabel = document.createElement('div');
+                    rearLabel.className = 'pointer-label rear-pointer';
+                    rearLabel.innerHTML = 'Rear <div class="pointer-arrow"></div>';
+                    el.appendChild(rearLabel);
+                }
+
+                container.appendChild(el);
+            });
+
+            // Update stats
+            frontIdxSpan.textContent = queue.length > 0 ? "0" : "-";
+            rearIdxSpan.textContent = queue.length > 0 ? queue.length - 1 : "-";
+            occupancyText.textContent = `${queue.length}/${MAX_CAPACITY}`;
+            progressBar.style.width = `${(queue.length / MAX_CAPACITY) * 100}%`;
+        }
+
+        /**
+         * Internal logging system
+         */
+        function addLog(msg, color) {
+            if (logArea.querySelector('.italic')) logArea.innerHTML = '';
+
+            const entry = document.createElement('div');
+            const colorClasses = {
+                emerald: 'border-emerald-500 bg-emerald-50',
+                red: 'border-red-500 bg-red-50',
+                amber: 'border-amber-500 bg-amber-50'
+            };
+            
+            entry.className = `log-entry p-3 rounded-r-lg text-sm text-slate-700 ${colorClasses[color] || 'border-slate-300 bg-slate-50'}`;
+            entry.innerHTML = msg;
+            
+            logArea.prepend(entry);
+        }
+
+        function incrementSteps() {
+            steps++;
+            stepCounter.textContent = `Steps: ${steps}`;
+        }
+
+        /**
+         * Modern toast feedback
+         */
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            
+            toastMsg.textContent = msg;
+            toastMsg.className = type === "error" 
+                ? "bg-red-600 text-white px-8 py-3 rounded-full shadow-2xl font-bold" 
+                : "bg-slate-800 text-white px-8 py-3 rounded-full shadow-2xl font-bold";
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // Listen for Enter key
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') enqueue();
+        });
+    </script>
+</body>
+</html>
