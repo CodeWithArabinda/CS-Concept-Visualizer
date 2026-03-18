@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strongly Connected Components Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions */
+        .node-circle {
+            transition: fill 0.4s ease, stroke 0.4s ease, stroke-width 0.4s ease, opacity 0.4s ease;
+        }
+        .edge-line {
+            transition: stroke 0.4s ease, stroke-width 0.4s ease, opacity 0.4s ease;
+        }
+        .stack-item {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">SCC Visualizer (Kosaraju's Algorithm)</h1>
+        <p class="text-slate-500">Detecting Strongly Connected Components in a Directed Graph</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 items-center justify-center">
+            <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="generateGraph()">Generate Random Graph</button>
+            <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm" onclick="startAlgorithm()">Start SCC</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="200" max="3000" value="1200" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Graph Area (Left/Center) -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center flex justify-between px-6 items-center">
+                <span>Directed Graph</span>
+                <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full uppercase tracking-wider font-bold" id="phase-badge">Phase: Setup</span>
+            </div>
+            <div class="relative w-full h-[450px] bg-slate-50/50 flex items-center justify-center">
+                <svg id="graph-svg" class="w-full h-full" viewBox="0 0 800 500">
+                    <defs>
+                        <!-- Arrowhead markers -->
+                        <marker id="arrowhead-normal" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e1" />
+                        </marker>
+                        <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
+                        </marker>
+                        <marker id="arrowhead-reverse" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                        </marker>
+                    </defs>
+                    <!-- Graph generated dynamically -->
+                </svg>
+            </div>
+            <!-- Explanation Panel -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                Generate a graph and click "Start SCC" to begin Kosaraju's Algorithm.
+            </div>
+        </div>
+
+        <!-- Right Panel: Stack & Metrics -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- Stack Panel (Finish Times) -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-grow">
+                <div class="p-3 bg-indigo-50 border-b border-indigo-100 font-semibold text-indigo-800 text-center flex justify-between items-center">
+                    <span>Finish Time Stack</span>
+                    <span class="text-xs bg-indigo-200 text-indigo-800 px-2 py-1 rounded-full">Phase 1 Output</span>
+                </div>
+                
+                <div class="flex-grow p-4 bg-slate-50/50 flex flex-col gap-2 overflow-y-auto max-h-[250px]" id="stack-container">
+                    <div class="text-slate-400 text-center text-sm mt-4 italic">Stack is empty</div>
+                </div>
+            </div>
+
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-3 pb-2 border-b-2 border-slate-100 text-slate-800">Algorithm Metrics</h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">DFS Calls</div>
+                        <div class="text-2xl font-bold text-blue-600 mt-1" id="metric-dfs">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Components Found</div>
+                        <div class="text-2xl font-bold text-green-600 mt-1" id="metric-scc">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider mb-2">Current Component Elements</div>
+                    <div class="font-mono font-bold text-slate-800 flex flex-wrap gap-1 min-h-[28px]" id="metric-current-scc">
+                        <span class="text-slate-400 font-normal italic text-sm">-</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Legend and Educational Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Legend -->
+        <div class="lg:col-span-2 flex flex-wrap gap-5 items-center justify-center p-5 bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-yellow-300 border-2 border-yellow-600 shadow-sm"></div>
+                <span>Current Node</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-slate-200 border-2 border-slate-400 shadow-sm"></div>
+                <span>Visited (Phase 1)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="flex gap-1">
+                    <div class="w-4 h-4 rounded-full bg-red-400"></div>
+                    <div class="w-4 h-4 rounded-full bg-blue-400"></div>
+                    <div class="w-4 h-4 rounded-full bg-green-400"></div>
+                </div>
+                <span>Identified Components (Unique Colors)</span>
+            </div>
+        </div>
+
+        <!-- Educational Panel -->
+        <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600 leading-relaxed">
+            <h2 class="text-base font-bold mb-2 text-slate-800">Kosaraju's Algorithm</h2>
+            <ol class="list-decimal pl-5 space-y-1">
+                <li><strong>Phase 1:</strong> Perform a standard DFS. Push nodes to a stack only <em>after</em> fully exploring all their branches (finish time).</li>
+                <li><strong>Phase 2:</strong> Reverse the direction of all edges in the graph (Transpose).</li>
+                <li><strong>Phase 3:</strong> Pop nodes from the stack. If unvisited, start a new DFS on the reversed graph to identify one <strong>Strongly Connected Component</strong>.</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global State ---
+    let graph = { nodes: [], edges: [] };
+    
+    // Distinct colors for SCCs
+    const sccColors = [
+        { fill: '#fca5a5', stroke: '#ef4444', text: '#7f1d1d' }, // Red
+        { fill: '#bfdbfe', stroke: '#3b82f6', text: '#1e3a8a' }, // Blue
+        { fill: '#bbf7d0', stroke: '#10b981', text: '#064e3b' }, // Green
+        { fill: '#e9d5ff', stroke: '#a855f7', text: '#581c87' }, // Purple
+        { fill: '#fbcfe8', stroke: '#ec4899', text: '#831843' }, // Pink
+        { fill: '#fed7aa', stroke: '#f97316', text: '#7c2d12' }, // Orange
+        { fill: '#ccfbf1', stroke: '#14b8a6', text: '#134e4a' }, // Teal
+    ];
+
+    let sortGenerator = null;
+    let isPlaying = false;
+    let searchTimeout = null;
+    let animationSpeed = 1200;
+    
+    // DOM Elements
+    const graphSvg = document.getElementById('graph-svg');
+    const stackContainer = document.getElementById('stack-container');
+    const explanationEl = document.getElementById('step-explanation');
+    const metricDfs = document.getElementById('metric-dfs');
+    const metricScc = document.getElementById('metric-scc');
+    const metricCurrentScc = document.getElementById('metric-current-scc');
+    const phaseBadge = document.getElementById('phase-badge');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateGraph();
+        updateSpeed();
+    }
+
+    // --- Graph Generation ---
+    function generateGraph() {
+        if (isPlaying) return;
+        
+        const numNodes = 9;
+        const width = 800;
+        const height = 450;
+        const padding = 60;
+        
+        graph.nodes = [];
+        graph.edges = [];
+        
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        
+        // Generate Nodes
+        for (let i = 0; i < numNodes; i++) {
+            let x, y;
+            let collision = true;
+            let attempts = 0;
+            while (collision && attempts < 100) {
+                x = padding + Math.random() * (width - padding * 2);
+                y = padding + Math.random() * (height - padding * 2);
+                collision = false;
+                for (let node of graph.nodes) {
+                    if (Math.hypot(node.x - x, node.y - y) < 80) { 
+                        collision = true;
+                        break;
+                    }
+                }
+                attempts++;
+            }
+            graph.nodes.push({ id: letters[i], x: x, y: y });
+        }
+        
+        // Generate Edges to form 2-3 intentional components
+        // Component 1 (0, 1, 2)
+        graph.edges.push({source: letters[0], target: letters[1]});
+        graph.edges.push({source: letters[1], target: letters[2]});
+        graph.edges.push({source: letters[2], target: letters[0]});
+        
+        // Component 2 (3, 4, 5)
+        graph.edges.push({source: letters[3], target: letters[4]});
+        graph.edges.push({source: letters[4], target: letters[5]});
+        graph.edges.push({source: letters[5], target: letters[3]});
+        
+        // Component 3 (6, 7, 8)
+        graph.edges.push({source: letters[6], target: letters[7]});
+        graph.edges.push({source: letters[7], target: letters[8]});
+        graph.edges.push({source: letters[8], target: letters[6]});
+
+        // Cross-component edges (one way only to maintain distinct SCCs)
+        graph.edges.push({source: letters[2], target: letters[3]});
+        graph.edges.push({source: letters[5], target: letters[6]});
+        
+        // Add a random extra edge inside a component to make it look organic
+        graph.edges.push({source: letters[1], target: letters[0]});
+
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- UI Rendering ---
+    function renderState(state) {
+        // Render Explanation text
+        explanationEl.textContent = state.msg;
+        
+        // Phase Badge and Colors
+        if (state.phase === 'dfs1') {
+            phaseBadge.textContent = 'Phase 1: First DFS';
+            phaseBadge.className = "text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full uppercase tracking-wider font-bold";
+            explanationEl.className = "p-4 bg-blue-50 border-t border-blue-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-blue-800";
+        } else if (state.phase === 'reverse') {
+            phaseBadge.textContent = 'Phase 2: Graph Reversal';
+            phaseBadge.className = "text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full uppercase tracking-wider font-bold";
+            explanationEl.className = "p-4 bg-orange-50 border-t border-orange-200 border-l-4 border-l-orange-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-orange-800";
+        } else if (state.phase === 'dfs2') {
+            phaseBadge.textContent = 'Phase 3: Finding SCCs';
+            phaseBadge.className = "text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full uppercase tracking-wider font-bold";
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else if (state.phase === 'done') {
+            phaseBadge.textContent = 'Complete';
+            phaseBadge.className = "text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full uppercase tracking-wider font-bold";
+            explanationEl.className = "p-4 bg-purple-50 border-t border-purple-200 border-l-4 border-l-purple-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-purple-800";
+        } else {
+            phaseBadge.textContent = 'Phase: Setup';
+            phaseBadge.className = "text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full uppercase tracking-wider font-bold";
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-slate-400 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Metrics
+        metricDfs.textContent = state.dfsCalls || 0;
+        metricScc.textContent = state.sccCount || 0;
+        
+        if (state.currentSccElements && state.currentSccElements.length > 0) {
+            metricCurrentScc.innerHTML = state.currentSccElements.map(id => 
+                `<span class="bg-slate-200 text-slate-800 px-2 py-0.5 rounded border border-slate-300 shadow-sm">${id}</span>`
+            ).join('');
+        } else {
+            metricCurrentScc.innerHTML = '<span class="text-slate-400 font-normal italic text-sm">None</span>';
+        }
+
+        // Render Stack
+        stackContainer.innerHTML = '';
+        if (state.stack.length === 0) {
+            stackContainer.innerHTML = '<div class="text-slate-400 text-center text-sm mt-4 italic flex items-center justify-center h-full">Stack is empty</div>';
+        } else {
+            // Render from top down
+            for (let i = state.stack.length - 1; i >= 0; i--) {
+                const item = state.stack[i];
+                const isTop = (i === state.stack.length - 1);
+                
+                const el = document.createElement('div');
+                el.className = `stack-item p-2 rounded-lg border flex justify-between items-center shadow-sm ${isTop ? 'bg-indigo-100 border-indigo-400 font-bold' : 'bg-white border-slate-200'}`;
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center border ${isTop ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-slate-300 bg-slate-50 text-slate-600'} text-xs font-bold">
+                            ${item}
+                        </div>
+                    </div>
+                    ${isTop ? '<span class="text-[10px] bg-indigo-500 text-white px-1 rounded uppercase">Top</span>' : ''}
+                `;
+                stackContainer.appendChild(el);
+            }
+        }
+
+        // Render Graph (SVG)
+        const defs = graphSvg.querySelector('defs').outerHTML;
+        graphSvg.innerHTML = defs;
+        
+        // Draw Edges
+        graph.edges.forEach(edge => {
+            let u = edge.source;
+            let v = edge.target;
+            
+            // If the graph is reversed in state, flip the visual representation
+            if (state.reversed) {
+                u = edge.target;
+                v = edge.source;
+            }
+
+            const sNode = graph.nodes.find(n => n.id === u);
+            const tNode = graph.nodes.find(n => n.id === v);
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", sNode.x);
+            line.setAttribute("y1", sNode.y);
+            line.setAttribute("x2", tNode.x);
+            line.setAttribute("y2", tNode.y);
+            
+            let isActivelyExplored = state.activeEdge && state.activeEdge.u === u && state.activeEdge.v === v;
+            
+            if (isActivelyExplored) {
+                line.setAttribute("stroke", "#f59e0b"); // Amber
+                line.setAttribute("stroke-width", "4");
+                line.setAttribute("marker-end", "url(#arrowhead-active)");
+            } else if (state.reversed) {
+                line.setAttribute("stroke", "#94a3b8"); // Slate 400
+                line.setAttribute("stroke-width", "2");
+                line.setAttribute("marker-end", "url(#arrowhead-reverse)");
+            } else {
+                line.setAttribute("stroke", "#cbd5e1"); // Slate 300
+                line.setAttribute("stroke-width", "2");
+                line.setAttribute("marker-end", "url(#arrowhead-normal)");
+            }
+            
+            line.classList.add("edge-line");
+            graphSvg.appendChild(line);
+        });
+
+        // Draw Nodes
+        graph.nodes.forEach(node => {
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            circle.setAttribute("r", "20");
+            circle.classList.add("node-circle");
+            
+            let fill = "#ffffff";
+            let stroke = "#cbd5e1";
+            let strokeWidth = "2";
+            let textColor = "#475569";
+
+            if (node.id === state.current) {
+                // Currently exploring
+                fill = "#fde047"; // Yellow 300
+                stroke = "#ca8a04"; // Yellow 600
+                strokeWidth = "4";
+                textColor = "#713f12";
+            } else if (state.sccMap && state.sccMap[node.id] !== undefined) {
+                // SCC identified
+                const colorObj = sccColors[state.sccMap[node.id] % sccColors.length];
+                fill = colorObj.fill;
+                stroke = colorObj.stroke;
+                strokeWidth = "3";
+                textColor = colorObj.text;
+            } else if (state.visited.has(node.id)) {
+                // Just visited (DFS 1)
+                fill = "#f1f5f9"; // Slate 100
+                stroke = "#94a3b8"; // Slate 400
+                strokeWidth = "2";
+                textColor = "#334155";
+            }
+
+            circle.setAttribute("fill", fill);
+            circle.setAttribute("stroke", stroke);
+            circle.setAttribute("stroke-width", strokeWidth);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", node.x);
+            text.setAttribute("y", node.y);
+            text.setAttribute("dy", "0.35em");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("fill", textColor);
+            text.setAttribute("font-weight", "bold");
+            text.setAttribute("font-family", "sans-serif");
+            text.textContent = node.id;
+
+            group.appendChild(circle);
+            group.appendChild(text);
+            graphSvg.appendChild(group);
+        });
+    }
+
+    // --- Kosaraju's Algorithm Generator ---
+    function* getKosarajuSteps(graphData) {
+        let stack = [];
+        let visited = new Set();
+        let sccMap = {}; // node -> sccId
+        let dfsCalls = 0;
+        let sccCount = 0;
+        let currentSccElements = [];
+
+        // Build adjacency list for standard and reversed graphs
+        let adj = {};
+        let revAdj = {};
+        graphData.nodes.forEach(n => {
+            adj[n.id] = [];
+            revAdj[n.id] = [];
+        });
+        graphData.edges.forEach(e => {
+            adj[e.source].push(e.target);
+            revAdj[e.target].push(e.source);
+        });
+
+        // ----------------------------------------
+        // PHASE 1: Standard DFS to build stack
+        // ----------------------------------------
+        yield { phase: 'dfs1', msg: 'Phase 1: Performing first DFS to determine node finish times.', stack: [...stack], visited: new Set(visited), current: null, reversed: false, dfsCalls, sccCount };
+
+        function* dfs1(u) {
+            dfsCalls++;
+            visited.add(u);
+            yield { phase: 'dfs1', msg: `Visiting node ${u}.`, stack: [...stack], visited: new Set(visited), current: u, reversed: false, dfsCalls, sccCount };
+
+            for (let v of adj[u]) {
+                yield { phase: 'dfs1', msg: `Checking neighbor ${v} of ${u}.`, stack: [...stack], visited: new Set(visited), current: u, activeEdge: {u, v}, reversed: false, dfsCalls, sccCount };
+                if (!visited.has(v)) {
+                    yield* dfs1(v);
+                    // Return visual focus back to u after child DFS finishes
+                    yield { phase: 'dfs1', msg: `Backtracking to ${u}.`, stack: [...stack], visited: new Set(visited), current: u, reversed: false, dfsCalls, sccCount };
+                }
+            }
+
+            stack.push(u);
+            yield { phase: 'dfs1', msg: `Finished exploring ${u}. Pushing to stack.`, stack: [...stack], visited: new Set(visited), current: null, reversed: false, dfsCalls, sccCount };
+        }
+
+        // Run DFS1 on all unvisited nodes
+        for (let n of graphData.nodes) {
+            if (!visited.has(n.id)) {
+                yield* dfs1(n.id);
+            }
+        }
+
+        // ----------------------------------------
+        // PHASE 2: Graph Reversal
+        // ----------------------------------------
+        yield { phase: 'reverse', msg: 'Phase 2: Reversing graph. All directed edges flip direction.', stack: [...stack], visited: new Set(visited), current: null, reversed: true, dfsCalls, sccCount };
+        
+        // Reset visited for phase 3
+        visited.clear();
+
+        // ----------------------------------------
+        // PHASE 3: DFS on Reversed Graph
+        // ----------------------------------------
+        yield { phase: 'dfs2', msg: 'Phase 3: Pop nodes from stack and run DFS on the reversed graph to isolate components.', stack: [...stack], visited: new Set(visited), current: null, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap} };
+
+        function* dfs2(u, componentId) {
+            dfsCalls++;
+            visited.add(u);
+            sccMap[u] = componentId;
+            currentSccElements.push(u);
+            
+            yield { phase: 'dfs2', msg: `Adding ${u} to current strongly connected component.`, stack: [...stack], visited: new Set(visited), current: u, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [...currentSccElements] };
+
+            for (let v of revAdj[u]) {
+                yield { phase: 'dfs2', msg: `Checking reversed neighbor ${v} of ${u}.`, stack: [...stack], visited: new Set(visited), current: u, activeEdge: {u, v}, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [...currentSccElements] };
+                if (!visited.has(v)) {
+                    yield* dfs2(v, componentId);
+                    yield { phase: 'dfs2', msg: `Backtracking to ${u} in reversed graph.`, stack: [...stack], visited: new Set(visited), current: u, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [...currentSccElements] };
+                }
+            }
+        }
+
+        while (stack.length > 0) {
+            let u = stack.pop();
+            yield { phase: 'dfs2', msg: `Popped ${u} from the stack.`, stack: [...stack], visited: new Set(visited), current: u, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [] };
+            
+            if (!visited.has(u)) {
+                yield { phase: 'dfs2', msg: `Node ${u} is unvisited. Identifying strongly connected component.`, stack: [...stack], visited: new Set(visited), current: u, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [] };
+                
+                currentSccElements = [];
+                yield* dfs2(u, sccCount);
+                sccCount++;
+                
+                yield { phase: 'dfs2', msg: `Component fully identified.`, stack: [...stack], visited: new Set(visited), current: null, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [...currentSccElements] };
+            } else {
+                yield { phase: 'dfs2', msg: `Node ${u} was already visited in a previous component. Skipping.`, stack: [...stack], visited: new Set(visited), current: null, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [] };
+            }
+        }
+
+        yield { phase: 'done', msg: `Kosaraju's Algorithm complete! Detected ${sccCount} Strongly Connected Components.`, stack: [], visited: new Set(visited), current: null, reversed: true, dfsCalls, sccCount, sccMap: {...sccMap}, currentSccElements: [] };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!sortGenerator) return;
+
+        const result = sortGenerator.next();
+        
+        if (result.done) {
+            finishAlgorithm();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            searchTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startAlgorithm() {
+        if (!sortGenerator) {
+            sortGenerator = getKosarajuSteps(graph);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseAlgorithm() {
+        isPlaying = false;
+        clearTimeout(searchTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseAlgorithm();
+        if (!sortGenerator) {
+            sortGenerator = getKosarajuSteps(graph);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseAlgorithm();
+        sortGenerator = null;
+        
+        renderState({
+            phase: 'setup',
+            msg: `Graph ready. Click "Start SCC" to begin Kosaraju's Algorithm.`,
+            stack: [],
+            visited: new Set(),
+            current: null,
+            reversed: false,
+            dfsCalls: 0,
+            sccCount: 0,
+            sccMap: {},
+            currentSccElements: []
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishAlgorithm() {
+        isPlaying = false;
+        sortGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = sortGenerator !== null;
+        
+        btnRandom.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseAlgorithm;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-amber-500 text-white hover:bg-amber-600 w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start SCC";
+            btnStart.onclick = startAlgorithm;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 w-32 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("Algorithm complete");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

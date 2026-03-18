@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depth First Search Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for graph nodes and edges */
+        .node-circle {
+            transition: fill 0.4s ease, stroke 0.4s ease, stroke-width 0.4s ease;
+        }
+        .edge-line {
+            transition: stroke 0.4s ease, stroke-width 0.4s ease;
+        }
+        
+        /* Stack item drop-in animation */
+        .stack-item {
+            animation: dropIn 0.3s ease-out forwards;
+        }
+        @keyframes dropIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Depth First Search (DFS) Visualizer</h1>
+        <p class="text-slate-500">Visualizing deep graph traversal using a Stack (LIFO)</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 items-center justify-center">
+            <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="generateGraph()">Generate Random Graph</button>
+            <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm" onclick="startDFS()">Start DFS</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="200" max="3000" value="1200" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Graph Area (Left/Center) -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center">
+                Graph Representation
+            </div>
+            <div class="relative w-full h-[400px] bg-slate-50/50 flex items-center justify-center">
+                <svg id="graph-svg" class="w-full h-full" viewBox="0 0 800 500">
+                    <!-- Graph generated dynamically -->
+                </svg>
+            </div>
+            <!-- Explanation Panel -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                Generate a graph and click "Start DFS" to begin traversal.
+            </div>
+        </div>
+
+        <!-- Stack & Metrics Panel (Right) -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- Stack Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-grow">
+                <div class="p-3 bg-purple-50 border-b border-purple-100 font-semibold text-purple-800 text-center flex justify-between items-center">
+                    <span>Call Stack</span>
+                    <span class="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full">LIFO</span>
+                </div>
+                <!-- Stack Container: elements will visually drop in from the top -->
+                <div class="p-4 flex-grow flex flex-col gap-2 bg-slate-50/50 overflow-y-auto max-h-[220px]" id="stack-container">
+                    <!-- Stack items injected here -->
+                    <div class="text-slate-400 text-center text-sm mt-4 italic">Stack is empty</div>
+                </div>
+                <div class="p-2 text-center text-xs font-semibold text-slate-400 border-t border-slate-100 uppercase tracking-widest bg-slate-50 rounded-b-xl">
+                    Stack Bottom
+                </div>
+            </div>
+
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-3 pb-2 border-b-2 border-slate-100 text-slate-800">Traversal Metrics</h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Visited Nodes</div>
+                        <div class="text-2xl font-bold text-green-600 mt-1" id="metric-visited">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Stack Depth</div>
+                        <div class="text-2xl font-bold text-purple-600 mt-1" id="metric-stackdepth">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider mb-2">Traversal Order</div>
+                    <div class="font-mono font-bold text-slate-800 flex flex-wrap gap-1" id="metric-order">
+                        <span class="text-slate-400 font-normal italic text-sm">None yet</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Legend and Educational Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Legend -->
+        <div class="lg:col-span-2 flex flex-wrap gap-5 items-center justify-center p-5 bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-yellow-300 border-2 border-yellow-600 shadow-sm"></div>
+                <span>Current Node (Top of Stack)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-green-100 border-2 border-green-600 shadow-sm"></div>
+                <span>Visited Node (In Path)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-orange-100 border-2 border-orange-500 shadow-sm"></div>
+                <span>Backtracking</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-white border-2 border-slate-300 shadow-sm"></div>
+                <span>Unvisited</span>
+            </div>
+        </div>
+
+        <!-- Educational Panel -->
+        <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600 leading-relaxed">
+            <h2 class="text-base font-bold mb-2 text-slate-800">About DFS</h2>
+            <p class="mb-2">
+                <strong>Depth-First Search</strong> explores as far as possible along each branch before <strong>backtracking</strong>. 
+            </p>
+            <p>
+                It uses a <strong>Stack (Last-In-First-Out)</strong> mechanism. When a node has no unvisited neighbors left, it is popped off the stack, and the algorithm backtracks to the previous node to check for unexplored paths.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global State ---
+    let graph = { nodes: [], edges: [] };
+    let startNodeId = 'A';
+    
+    let dfsGenerator = null;
+    let isPlaying = false;
+    let searchTimeout = null;
+    let animationSpeed = 1200;
+    
+    // DOM Elements
+    const graphSvg = document.getElementById('graph-svg');
+    const stackContainer = document.getElementById('stack-container');
+    const explanationEl = document.getElementById('step-explanation');
+    const metricVisited = document.getElementById('metric-visited');
+    const metricStackDepth = document.getElementById('metric-stackdepth');
+    const metricOrder = document.getElementById('metric-order');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateGraph();
+        updateSpeed();
+    }
+
+    // --- Graph Generation (Matches BFS visualizer structure) ---
+    function generateGraph() {
+        if (isPlaying) return;
+        
+        const numNodes = 10;
+        const width = 800;
+        const height = 500;
+        const padding = 60;
+        
+        graph.nodes = [];
+        graph.edges = [];
+        
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (let i = 0; i < numNodes; i++) {
+            let x, y;
+            let collision = true;
+            let attempts = 0;
+            
+            while (collision && attempts < 100) {
+                x = padding + Math.random() * (width - padding * 2);
+                y = padding + Math.random() * (height - padding * 2);
+                collision = false;
+                
+                for (let node of graph.nodes) {
+                    let dx = node.x - x;
+                    let dy = node.y - y;
+                    if (Math.sqrt(dx*dx + dy*dy) < 90) { 
+                        collision = true;
+                        break;
+                    }
+                }
+                attempts++;
+            }
+            graph.nodes.push({ id: letters[i], x: x, y: y });
+        }
+        
+        // Ensure connected graph via spanning tree
+        for (let i = 1; i < numNodes; i++) {
+            let target = Math.floor(Math.random() * i);
+            graph.edges.push({ source: graph.nodes[i].id, target: graph.nodes[target].id });
+        }
+        
+        // Add random cross connections
+        const extraEdges = 4;
+        for (let i = 0; i < extraEdges; i++) {
+            let s = Math.floor(Math.random() * numNodes);
+            let t = Math.floor(Math.random() * numNodes);
+            
+            if (s !== t) {
+                let sid = graph.nodes[s].id;
+                let tid = graph.nodes[t].id;
+                let exists = graph.edges.some(e => 
+                    (e.source === sid && e.target === tid) || 
+                    (e.source === tid && e.target === sid)
+                );
+                if (!exists) {
+                    graph.edges.push({ source: sid, target: tid });
+                }
+            }
+        }
+        
+        startNodeId = graph.nodes[0].id;
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- UI Rendering ---
+    function renderState(state) {
+        // Render Explanation text
+        explanationEl.textContent = state.msg;
+        
+        // Color explanations based on phase
+        if (state.phase === 'explore') {
+            explanationEl.className = "p-4 bg-yellow-50 border-t border-yellow-200 border-l-4 border-l-yellow-400 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-yellow-800";
+        } else if (state.phase === 'backtrack') {
+            explanationEl.className = "p-4 bg-orange-50 border-t border-orange-200 border-l-4 border-l-orange-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-orange-800";
+        } else if (state.phase === 'done') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else {
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Update Metrics
+        metricVisited.textContent = state.processed.size;
+        metricStackDepth.textContent = state.stack.length;
+        
+        if (state.traversalOrder.length === 0) {
+            metricOrder.innerHTML = '<span class="text-slate-400 font-normal italic text-sm">None yet</span>';
+        } else {
+            metricOrder.innerHTML = state.traversalOrder.map(id => 
+                `<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-300 shadow-sm">${id}</span>`
+            ).join('<span class="text-slate-400 mt-1">→</span>');
+        }
+
+        // Render Graph (SVG)
+        graphSvg.innerHTML = '';
+        
+        // Draw Edges First
+        graph.edges.forEach(edge => {
+            const sNode = graph.nodes.find(n => n.id === edge.source);
+            const tNode = graph.nodes.find(n => n.id === edge.target);
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", sNode.x);
+            line.setAttribute("y1", sNode.y);
+            line.setAttribute("x2", tNode.x);
+            line.setAttribute("y2", tNode.y);
+            
+            let isActivelyExplored = false;
+            let isBacktracking = false;
+
+            if (state.activeEdge) {
+                if ((edge.source === state.activeEdge.u && edge.target === state.activeEdge.v) ||
+                    (edge.target === state.activeEdge.u && edge.source === state.activeEdge.v)) {
+                    if (state.phase === 'explore') isActivelyExplored = true;
+                    if (state.phase === 'backtrack') isBacktracking = true;
+                }
+            }
+            
+            if (isActivelyExplored) {
+                line.setAttribute("stroke", "#eab308"); // Yellow 500
+                line.setAttribute("stroke-width", "4");
+            } else if (isBacktracking) {
+                line.setAttribute("stroke", "#f97316"); // Orange 500
+                line.setAttribute("stroke-width", "4");
+                line.setAttribute("stroke-dasharray", "5,5"); // Dashed for backtracking
+            } else {
+                line.setAttribute("stroke", "#cbd5e1"); // Slate 300
+                line.setAttribute("stroke-width", "2");
+            }
+            
+            line.classList.add("edge-line");
+            graphSvg.appendChild(line);
+        });
+
+        // Draw Nodes
+        graph.nodes.forEach(node => {
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            circle.setAttribute("r", "20");
+            circle.classList.add("node-circle");
+            
+            let fill = "#ffffff";
+            let stroke = "#cbd5e1";
+            let strokeWidth = "2";
+            let textColor = "#475569";
+
+            if (node.id === state.backtrackingNode) {
+                // Node being backtracked from
+                fill = "#ffedd5"; // Orange 100
+                stroke = "#f97316"; // Orange 500
+                strokeWidth = "3";
+                textColor = "#9a3412"; // Orange 800
+            } else if (node.id === state.current) {
+                // Current Node (Top of stack)
+                fill = "#fde047"; // Yellow 300
+                stroke = "#ca8a04"; // Yellow 600
+                strokeWidth = "4";
+                textColor = "#713f12"; // Yellow 900
+            } else if (state.processed.has(node.id)) {
+                // Visited Node
+                fill = "#dcfce7"; // Green 100
+                stroke = "#16a34a"; // Green 600
+                strokeWidth = "2";
+                textColor = "#166534"; // Green 800
+            }
+
+            circle.setAttribute("fill", fill);
+            circle.setAttribute("stroke", stroke);
+            circle.setAttribute("stroke-width", strokeWidth);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", node.x);
+            text.setAttribute("y", node.y);
+            text.setAttribute("dy", "0.35em");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("fill", textColor);
+            text.setAttribute("font-weight", "bold");
+            text.setAttribute("font-family", "sans-serif");
+            text.textContent = node.id;
+
+            group.appendChild(circle);
+            group.appendChild(text);
+            graphSvg.appendChild(group);
+        });
+
+        // Render Stack
+        stackContainer.innerHTML = '';
+        if (state.stack.length === 0) {
+            stackContainer.innerHTML = '<div class="text-slate-400 text-center text-sm mt-4 italic flex items-center justify-center h-full">Stack is empty</div>';
+        } else {
+            // Stack renders top-down: last element in array is at the top of the UI
+            for (let i = state.stack.length - 1; i >= 0; i--) {
+                const item = state.stack[i];
+                const isTop = i === state.stack.length - 1;
+                
+                const el = document.createElement('div');
+                el.className = `stack-item p-3 rounded-lg border flex justify-between items-center shadow-sm ${
+                    isTop ? 'bg-purple-100 border-purple-400 font-bold z-10' : 'bg-white border-slate-200'
+                }`;
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                            isTop ? 'border-purple-500 bg-purple-50 text-purple-800' : 'border-slate-300 bg-slate-50 text-slate-600'
+                        } font-bold">
+                            ${item}
+                        </div>
+                        <span class="${isTop ? 'text-purple-800' : 'text-slate-600'}">Node ${item}</span>
+                    </div>
+                    ${isTop ? '<span class="text-[10px] uppercase font-bold bg-purple-500 text-white px-2 py-1 rounded">Top</span>' : ''}
+                `;
+                stackContainer.appendChild(el);
+            }
+        }
+    }
+
+    // --- DFS Algorithm Generator ---
+    function* getDfsSteps(graphData, startNode) {
+        let stack = [startNode];
+        let processed = new Set([startNode]);
+        let traversalOrder = [startNode];
+
+        yield { 
+            phase: 'start', stack: [...stack], processed: new Set(processed), 
+            current: startNode, traversalOrder: [...traversalOrder], backtrackingNode: null, activeEdge: null,
+            msg: `Starting DFS from node ${startNode}. Pushed onto stack.` 
+        };
+
+        while(stack.length > 0) {
+            let current = stack[stack.length - 1]; // Peek at Top
+
+            // Find all neighbors of current node
+            let neighbors = graphData.edges
+                .filter(e => e.source === current || e.target === current)
+                .map(e => e.source === current ? e.target : e.source)
+                .sort(); // Sort alphabetically to define a consistent traversal path
+
+            // Find the *first* unvisited neighbor
+            let unvisitedNeighbor = neighbors.find(n => !processed.has(n));
+
+            if (unvisitedNeighbor) {
+                // We have a neighbor to go deeper into
+                processed.add(unvisitedNeighbor);
+                traversalOrder.push(unvisitedNeighbor);
+                stack.push(unvisitedNeighbor);
+
+                yield { 
+                    phase: 'explore', stack: [...stack], processed: new Set(processed), 
+                    current: unvisitedNeighbor, traversalOrder: [...traversalOrder], backtrackingNode: null,
+                    activeEdge: {u: current, v: unvisitedNeighbor},
+                    msg: `Exploring neighbor ${unvisitedNeighbor}. Pushing ${unvisitedNeighbor} to stack.` 
+                };
+            } else {
+                // Dead end reached. Pop current node from stack (Backtrack)
+                let poppedNode = stack.pop();
+                let newCurrent = stack.length > 0 ? stack[stack.length - 1] : null;
+
+                if (newCurrent) {
+                    yield { 
+                        phase: 'backtrack', stack: [...stack], processed: new Set(processed), 
+                        current: newCurrent, traversalOrder: [...traversalOrder], backtrackingNode: poppedNode,
+                        activeEdge: {u: poppedNode, v: newCurrent},
+                        msg: `No unvisited neighbors for ${poppedNode}. Backtracking to ${newCurrent}.` 
+                    };
+                } else {
+                    yield { 
+                        phase: 'backtrack', stack: [...stack], processed: new Set(processed), 
+                        current: null, traversalOrder: [...traversalOrder], backtrackingNode: poppedNode,
+                        activeEdge: null,
+                        msg: `No unvisited neighbors for ${poppedNode}. Popped the last node.` 
+                    };
+                }
+            }
+        }
+
+        yield { 
+            phase: 'done', stack: [], processed: new Set(processed), 
+            current: null, traversalOrder: [...traversalOrder], backtrackingNode: null, activeEdge: null,
+            msg: `DFS complete! The stack is empty and all reachable nodes have been traversed.` 
+        };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!dfsGenerator) return;
+
+        const result = dfsGenerator.next();
+        
+        if (result.done) {
+            finishDFS();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            searchTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startDFS() {
+        if (!dfsGenerator) {
+            dfsGenerator = getDfsSteps(graph, startNodeId);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseDFS() {
+        isPlaying = false;
+        clearTimeout(searchTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseDFS();
+        if (!dfsGenerator) {
+            dfsGenerator = getDfsSteps(graph, startNodeId);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseDFS();
+        dfsGenerator = null;
+        
+        renderState({
+            phase: 'idle',
+            msg: `Graph ready. Click "Start DFS" to begin traversal from node ${startNodeId}.`,
+            stack: [],
+            processed: new Set(),
+            current: null,
+            backtrackingNode: null,
+            activeEdge: null,
+            traversalOrder: []
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishDFS() {
+        isPlaying = false;
+        dfsGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = dfsGenerator !== null;
+        
+        btnRandom.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseDFS;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-amber-500 text-white hover:bg-amber-600 w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start DFS";
+            btnStart.onclick = startDFS;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 w-32 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("DFS complete");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

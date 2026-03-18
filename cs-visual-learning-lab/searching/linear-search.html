@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Search Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for box animations */
+        .array-box {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans">
+
+<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
+    <!-- Header -->
+    <header class="col-span-1 lg:col-span-full text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Linear Search Visualizer</h1>
+        <p class="text-slate-500">Step-by-step visualization of sequential searching</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="col-span-1 lg:col-span-full bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4">
+        
+        <!-- Input Group -->
+        <div class="flex flex-wrap justify-center gap-4 items-end">
+            <div class="flex flex-col gap-1">
+                <label for="custom-array" class="text-sm font-semibold text-slate-600">Array Values (comma separated)</label>
+                <input type="text" id="custom-array" class="px-3 py-2 border border-slate-300 rounded-md w-64 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 4, 7, 1, 9, 3">
+            </div>
+            <div class="flex flex-col gap-1">
+                <label for="custom-target" class="text-sm font-semibold text-slate-600">Target Value</label>
+                <input type="text" id="custom-target" class="px-3 py-2 border border-slate-300 rounded-md w-32 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 9">
+            </div>
+            <button onclick="applyCustomInputs()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-md transition-colors h-[42px]">Apply Inputs</button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 items-center justify-center pt-2 border-t border-slate-100">
+            <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="generateRandomData()">Generate Random Array</button>
+            <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32" onclick="startSearch()">Start Search</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="100" max="2000" value="800" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="flex flex-col gap-5">
+        <div class="bg-white rounded-xl p-8 shadow-sm flex flex-col items-center justify-center min-h-[350px] gap-10">
+            
+            <!-- Target Display -->
+            <div class="text-xl font-semibold bg-slate-100 px-6 py-3 rounded-lg border border-slate-200 text-slate-700 shadow-sm">
+                Target to find: <span id="display-target" class="text-blue-600 font-bold text-2xl ml-2">-</span>
+            </div>
+
+            <!-- Array Blocks Section -->
+            <div class="flex flex-wrap gap-3 justify-center" id="array-container">
+                <!-- Array boxes injected by JS -->
+            </div>
+
+            <!-- Explanation Panel -->
+            <div class="w-full max-w-2xl p-4 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg font-medium text-lg min-h-[60px] text-center shadow-sm" id="step-explanation">
+                Enter an array and a target, then click "Start Search".
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-6 justify-center p-5 bg-white rounded-xl shadow-sm">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-yellow-400 border border-black shadow-sm"></div>
+                <span>Current Element</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-red-400 border border-red-500 shadow-sm"></div>
+                <span>Element Checked (Not Target)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-green-500 border border-green-600 shadow-sm"></div>
+                <span>Target Found</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-slate-200 border border-slate-300"></div>
+                <span>Remaining Elements</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sidebar Educational Panel -->
+    <aside class="flex flex-col gap-5">
+        <!-- Algorithm Metrics -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold mb-4 pb-2 border-b-2 border-slate-200 text-slate-800">Algorithm Metrics</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 bg-slate-50 p-4 rounded-lg text-center border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-sm uppercase tracking-wider">Comparisons</div>
+                    <div class="text-4xl font-bold text-blue-500 mt-1" id="metric-comps">0</div>
+                </div>
+                <div class="col-span-2 bg-slate-50 p-4 rounded-lg text-center border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-sm uppercase tracking-wider">Current Index</div>
+                    <div class="text-3xl font-bold text-slate-700 mt-1 font-mono" id="metric-index">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Info -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold mb-4 pb-2 border-b-2 border-slate-200 text-slate-800">Educational Panel</h2>
+            <p class="mb-4 text-slate-600 text-sm leading-relaxed">
+                <strong>Linear Search</strong> sequentially checks each element of the list until a match is found or the whole list has been searched.
+            </p>
+            <p class="mb-4 text-slate-600 text-sm leading-relaxed">
+                It is the simplest search algorithm and does not require the array to be sorted beforehand.
+            </p>
+            <ul class="list-none flex flex-col gap-3">
+                <li class="flex justify-between items-center pb-2 border-b border-dashed border-slate-200">
+                    <span class="font-medium text-slate-700">Best Case</span>
+                    <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-mono font-bold text-sm shadow-sm">O(1)</span>
+                </li>
+                <li class="flex justify-between items-center pb-2 border-b border-dashed border-slate-200">
+                    <span class="font-medium text-slate-700">Worst Case</span>
+                    <span class="bg-rose-100 text-rose-800 px-2 py-1 rounded font-mono font-bold text-sm shadow-sm">O(n)</span>
+                </li>
+                <li class="flex justify-between items-center">
+                    <span class="font-medium text-slate-700">Average Case</span>
+                    <span class="bg-amber-100 text-amber-800 px-2 py-1 rounded font-mono font-bold text-sm shadow-sm">O(n)</span>
+                </li>
+            </ul>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // --- Global State ---
+    let searchArray = [];
+    let targetValue = null;
+    
+    let searchGenerator = null;
+    let isPlaying = false;
+    let searchTimeout = null;
+    let animationSpeed = 800;
+    
+    // DOM Elements
+    const arrayContainer = document.getElementById('array-container');
+    const explanationEl = document.getElementById('step-explanation');
+    const displayTarget = document.getElementById('display-target');
+    const metricComps = document.getElementById('metric-comps');
+    const metricIndex = document.getElementById('metric-index');
+    
+    const inputArr = document.getElementById('custom-array');
+    const inputTarget = document.getElementById('custom-target');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateRandomData();
+        updateSpeed();
+    }
+
+    function generateRandomData() {
+        if (isPlaying) return;
+        
+        // Generate array of 8-12 random elements
+        const size = Math.floor(Math.random() * 5) + 8;
+        searchArray = Array.from({length: size}, () => Math.floor(Math.random() * 99) + 1);
+        
+        // 80% chance target is in the array, 20% chance it's not
+        if (Math.random() > 0.2) {
+            targetValue = searchArray[Math.floor(Math.random() * size)];
+        } else {
+            targetValue = Math.floor(Math.random() * 99) + 100; // Guaranteed not in 1-99 range
+        }
+
+        // Update Inputs
+        inputArr.value = searchArray.join(', ');
+        inputTarget.value = targetValue;
+        
+        resetVisualizer();
+    }
+
+    function applyCustomInputs() {
+        if (isPlaying) return;
+
+        const arrVal = inputArr.value;
+        const targetVal = inputTarget.value;
+
+        if (!arrVal || !targetVal) {
+            alert("Please provide both array values and a target value.");
+            return;
+        }
+
+        const parsedArr = arrVal.split(',').map(item => parseInt(item.trim(), 10));
+        const parsedTarget = parseInt(targetVal.trim(), 10);
+
+        if (parsedArr.some(isNaN) || isNaN(parsedTarget)) {
+            alert("Please enter valid numbers only.");
+            return;
+        }
+
+        searchArray = parsedArr;
+        targetValue = parsedTarget;
+        
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- UI Rendering ---
+    function renderState(state) {
+        // Update Metrics
+        metricComps.textContent = state.comparisons;
+        metricIndex.textContent = state.index >= 0 ? state.index : '-';
+
+        // Update Explanation
+        explanationEl.textContent = state.msg;
+        
+        // Highlight logic for the explanation panel based on status
+        if (state.status === 'found') {
+            explanationEl.className = "w-full max-w-2xl p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg font-medium text-lg min-h-[60px] text-center shadow-sm text-green-800";
+        } else if (state.status === 'not_found') {
+            explanationEl.className = "w-full max-w-2xl p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg font-medium text-lg min-h-[60px] text-center shadow-sm text-red-800";
+        } else {
+            explanationEl.className = "w-full max-w-2xl p-4 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg font-medium text-lg min-h-[60px] text-center shadow-sm text-slate-800";
+        }
+
+        // Render Array Blocks
+        arrayContainer.innerHTML = '';
+        
+        searchArray.forEach((val, i) => {
+            const block = document.createElement('div');
+            block.className = 'flex flex-col items-center gap-2';
+
+            const box = document.createElement('div');
+            
+            // Base classes
+            let bgClass = 'bg-slate-200 text-slate-700 border-slate-300';
+            let extraClasses = '';
+
+            // --- Apply Colors based on State ---
+            if (state.status === 'found' && i === state.index) {
+                // Target Found
+                bgClass = 'bg-green-500 text-white border-green-700';
+                extraClasses = 'scale-110 z-10 shadow-lg';
+            } 
+            else if (i === state.index) {
+                // Current Element being checked
+                bgClass = 'bg-yellow-400 text-black border-yellow-600';
+                extraClasses = 'scale-110 z-10 shadow-md';
+            } 
+            else if (i < state.index || (state.status === 'not_found')) {
+                // Element already checked (Not Target)
+                bgClass = 'bg-red-400 text-white border-red-500';
+                extraClasses = 'opacity-80';
+            }
+
+            box.className = `array-box w-[60px] h-[60px] flex items-center justify-center text-2xl font-bold border-2 rounded-lg ${bgClass} ${extraClasses}`;
+            box.textContent = val;
+
+            const label = document.createElement('div');
+            label.className = `text-sm font-mono ${i === state.index ? 'text-blue-600 font-bold' : 'text-slate-500'}`;
+            label.textContent = `[${i}]`;
+
+            block.appendChild(box);
+            block.appendChild(label);
+            arrayContainer.appendChild(block);
+        });
+    }
+
+    // --- Linear Search Algorithm Generator ---
+    // Yields state objects at every logical step of the algorithm
+    function* getLinearSearchSteps(arr, target) {
+        let comparisons = 0;
+
+        yield { phase: 'start', msg: `Starting linear search for target ${target}.`, index: -1, comparisons, status: 'searching' };
+
+        for (let i = 0; i < arr.length; i++) {
+            
+            yield { phase: 'checking', msg: `Checking element at index ${i}.`, index: i, comparisons, status: 'searching' };
+            
+            comparisons++;
+            yield { phase: 'comparing', msg: `Comparing element ${arr[i]} with target ${target}.`, index: i, comparisons, status: 'searching' };
+            
+            if (arr[i] === target) {
+                yield { phase: 'match', msg: `Success! Target ${target} found at index ${i}.`, index: i, comparisons, status: 'found' };
+                return; // End generator
+            } else {
+                yield { phase: 'mismatch', msg: `${arr[i]} is not ${target}. Moving to the next element.`, index: i, comparisons, status: 'searching' };
+            }
+        }
+
+        yield { phase: 'not_found', msg: `Reached the end of the array. Target ${target} was not found.`, index: arr.length, comparisons, status: 'not_found' };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!searchGenerator) return;
+
+        const result = searchGenerator.next();
+        
+        if (result.done) {
+            finishSearch();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            searchTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startSearch() {
+        if (!searchArray.length || targetValue === null) {
+            alert("Please generate data or apply custom inputs first.");
+            return;
+        }
+
+        if (!searchGenerator) {
+            searchGenerator = getLinearSearchSteps(searchArray, targetValue);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseSearch() {
+        isPlaying = false;
+        clearTimeout(searchTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseSearch(); // Ensure it pauses if playing
+        if (!searchGenerator) {
+            searchGenerator = getLinearSearchSteps(searchArray, targetValue);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseSearch();
+        searchGenerator = null;
+        
+        displayTarget.textContent = targetValue !== null ? targetValue : '-';
+        
+        renderState({
+            phase: 'idle',
+            msg: `Ready to search for ${targetValue}. Click "Start Search" to begin.`,
+            index: -1,
+            comparisons: 0,
+            status: 'idle'
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishSearch() {
+        isPlaying = false;
+        searchGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        // Inputs disabled while playing or paused mid-search
+        const isActive = searchGenerator !== null;
+        
+        inputArr.disabled = isActive;
+        inputTarget.disabled = isActive;
+        btnRandom.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseSearch;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start Search";
+            btnStart.onclick = startSearch;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm";
+            
+            // If algorithm finished finding/not finding, disable start and next
+            const isFinished = explanationEl.textContent.includes("Success!") || explanationEl.textContent.includes("not found.");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

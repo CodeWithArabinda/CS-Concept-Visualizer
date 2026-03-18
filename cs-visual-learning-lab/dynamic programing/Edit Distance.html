@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Distance Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* DP Table Cells */
+        .dp-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            border: 2px solid #e2e8f0;
+            background-color: #ffffff;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 1.125rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            aspect-ratio: 1 / 1;
+            min-width: 2.5rem;
+            position: relative;
+        }
+
+        .header-cell {
+            background-color: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #334155;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        /* Operation States */
+        .cell-default { background-color: #ffffff; border-color: #e2e8f0; color: #475569; }
+        
+        .cell-compare {
+            background-color: #fef08a; /* Yellow-200 */
+            border-color: #eab308; /* Yellow-500 */
+            color: #854d0e;
+            transform: scale(1.1);
+            z-index: 20;
+            box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.4);
+        }
+
+        .cell-insert {
+            background-color: #bfdbfe; /* Blue-200 */
+            border-color: #3b82f6; /* Blue-500 */
+            color: #1e3a8a;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .cell-delete {
+            background-color: #fecaca; /* Red-200 */
+            border-color: #ef4444; /* Red-500 */
+            color: #7f1d1d;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .cell-replace {
+            background-color: #fef08a; /* Yellow-200 */
+            border-color: #eab308; /* Yellow-500 */
+            color: #713f12;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .cell-match {
+            background-color: #e2e8f0; /* Slate-200 */
+            border-color: #94a3b8; /* Slate-400 */
+            color: #334155;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .cell-final {
+            background-color: #bbf7d0; /* Green-200 */
+            border-color: #22c55e; /* Green-500 */
+            color: #14532d;
+            transform: scale(1.1);
+            z-index: 20;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+            animation: pulse-green 1.5s infinite;
+        }
+
+        /* Dependency highlights (showing where the value came from) */
+        .cell-dependency {
+            border-style: dashed;
+            border-width: 3px;
+            opacity: 0.8;
+        }
+        .dep-insert { border-color: #3b82f6; background-color: #eff6ff; }
+        .dep-delete { border-color: #ef4444; background-color: #fef2f2; }
+        .dep-replace { border-color: #eab308; background-color: #fefce8; }
+        .dep-match { border-color: #64748b; background-color: #f8fafc; }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Distance Visualizer
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Setup Table
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm w-36 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start DP
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium transition-colors border border-indigo-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="100" max="1500" value="800" class="w-20 accent-indigo-600" dir="rtl">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Fields -->
+            <div class="flex flex-col sm:flex-row gap-4 items-end bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="w-full sm:w-64">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">String A (Source)</label>
+                    <input type="text" id="input-str-a" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mono" value="kitten" maxlength="10">
+                </div>
+                <div class="w-full sm:w-64">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">String B (Target)</label>
+                    <input type="text" id="input-str-b" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mono" value="sitting" maxlength="10">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left/Center Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready to compute.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[140px] text-center shadow-inner">
+                        <div class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Min Operations</div>
+                        <div class="text-2xl font-bold text-emerald-600 mono" id="metric-min-ops">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col relative" style="height: 520px;">
+                
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 z-20 flex flex-col gap-2 text-xs font-medium bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="font-bold text-slate-500 uppercase tracking-wider mb-1 border-b pb-1">Legend</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-blue-500 bg-blue-200"></span> Insert</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-red-500 bg-red-200"></span> Delete</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-yellow-500 bg-yellow-200"></span> Replace</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-slate-400 bg-slate-200"></span> Match (No Cost)</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-green-500 bg-green-200"></span> Final Answer</div>
+                </div>
+
+                <!-- 2D Table Container -->
+                <div class="w-full h-full overflow-auto custom-scrollbar relative flex items-center justify-center p-8" id="table-scroll-container">
+                    
+                    <!-- CSS Grid injected via JS -->
+                    <div id="dp-table" class="grid gap-1 pb-4">
+                        <!-- Cells injected via JS -->
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Code Context -->
+            <div class="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-5 text-slate-300 mono text-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-slate-700 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase">dp[i][j] Logic</div>
+                <div class="flex gap-4">
+                    <div class="w-8 text-slate-500 text-right select-none flex flex-col">
+                        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-fuchsia-400">if</span> (A[i-1] === B[j-1]) {
+                        <span class="pl-4 text-slate-400 italic">// Characters match, no new operation needed</span>
+                        <span class="pl-4 font-bold text-slate-300">dp[i][j] = dp[i-1][j-1];</span>
+                        } <span class="text-fuchsia-400">else</span> {
+                        <span class="pl-4 text-slate-400 italic">// Take the minimum of Insert, Delete, or Replace + 1</span>
+                        <span class="pl-4 font-bold text-indigo-300">dp[i][j] = 1 + Math.min(dp[i][j-1], dp[i-1][j], dp[i-1][j-1]);</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel -->
+        <aside class="lg:col-span-1 flex flex-col gap-6 h-fit sticky top-24">
+            
+            <!-- Theory Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                    Algorithm Theory
+                </h2>
+                
+                <div class="space-y-5 text-sm text-slate-600">
+                    <div>
+                        <h3 class="font-bold text-slate-800 border-b pb-1 mb-2">The Goal</h3>
+                        <p>Find the minimum number of operations required to transform String A into String B using only Insertions, Deletions, and Replacements.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-slate-800 border-b pb-1 mb-2">2D DP Table</h3>
+                        <p>We build a table where <span class="mono font-bold text-indigo-700">dp[i][j]</span> represents the edit distance between the first <span class="mono text-slate-800">i</span> characters of String A and the first <span class="mono text-slate-800">j</span> characters of String B.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-slate-800 border-b pb-1 mb-2">Operations & Dependencies</h3>
+                        <ul class="space-y-2 mt-2">
+                            <li class="flex gap-2">
+                                <span class="w-3 h-3 rounded bg-blue-200 border border-blue-500 shrink-0 mt-1"></span>
+                                <div><strong class="text-blue-700">Insert:</strong> Looks left to <span class="mono text-xs">dp[i][j-1]</span>. We conceptually insert B[j] to match.</div>
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="w-3 h-3 rounded bg-red-200 border border-red-500 shrink-0 mt-1"></span>
+                                <div><strong class="text-red-700">Delete:</strong> Looks up to <span class="mono text-xs">dp[i-1][j]</span>. We conceptually delete A[i] to match.</div>
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="w-3 h-3 rounded bg-yellow-200 border border-yellow-500 shrink-0 mt-1"></span>
+                                <div><strong class="text-yellow-700">Replace/Match:</strong> Looks diagonally up-left to <span class="mono text-xs">dp[i-1][j-1]</span>. We replace A[i] with B[j], or do nothing if they match.</div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mt-4">
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-indigo-800 font-semibold">Time Complexity</span>
+                                <span class="font-mono text-indigo-900 font-bold bg-white border border-indigo-200 px-2 py-0.5 rounded shadow-sm">O(m &times; n)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-indigo-800 font-semibold">Space Complexity</span>
+                                <span class="font-mono text-indigo-900 font-bold bg-white border border-indigo-200 px-2 py-0.5 rounded shadow-sm">O(m &times; n)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        let strA = "kitten";
+        let strB = "sitting";
+        
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 800; // ms
+
+        // DOM Elements
+        const tableContainerEl = document.getElementById('dp-table');
+        const scrollContainerEl = document.getElementById('table-scroll-container');
+        
+        const stepExplEl = document.getElementById('step-explanation');
+        const metricMinOpsEl = document.getElementById('metric-min-ops');
+        
+        const inputStrAEl = document.getElementById('input-str-a');
+        const inputStrBEl = document.getElementById('input-str-b');
+        
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // --- Initialization & Setup ---
+        function init() {
+            setupVisualizer();
+            setupEventListeners();
+        }
+
+        function parseInputs() {
+            strA = inputStrAEl.value.trim();
+            strB = inputStrBEl.value.trim();
+
+            if (!strA || !strB) {
+                alert("Please provide valid strings for A and B.");
+                strA = "kitten";
+                strB = "sitting";
+                inputStrAEl.value = strA;
+                inputStrBEl.value = strB;
+            }
+        }
+
+        function setupVisualizer() {
+            stopAutoPlay();
+            parseInputs();
+            
+            const m = strA.length;
+            const n = strB.length;
+
+            // Setup CSS Grid
+            tableContainerEl.style.gridTemplateColumns = `repeat(${n + 2}, minmax(0, 1fr))`;
+            tableContainerEl.innerHTML = '';
+
+            // Initialize Grid HTML (m+2 rows x n+2 cols)
+            // Row 0: Headers for StrB
+            for (let j = -1; j <= n; j++) {
+                const cell = document.createElement('div');
+                cell.className = 'dp-cell header-cell mono';
+                if (j === -1 || j === 0) cell.innerHTML = '&nbsp;';
+                else cell.innerHTML = `<span class="text-indigo-600">${strB[j-1]}</span>`;
+                tableContainerEl.appendChild(cell);
+            }
+
+            // DP Rows
+            for (let i = 0; i <= m; i++) {
+                // Header for StrA
+                const headerCell = document.createElement('div');
+                headerCell.className = 'dp-cell header-cell mono';
+                if (i === 0) headerCell.innerHTML = '&nbsp;';
+                else headerCell.innerHTML = `<span class="text-indigo-600">${strA[i-1]}</span>`;
+                tableContainerEl.appendChild(headerCell);
+
+                // DP Cells
+                for (let j = 0; j <= n; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'dp-cell cell-default mono';
+                    cell.id = `cell-${i}-${j}`;
+                    
+                    // Tooltip logic for matrix coordinates
+                    const coordLabel = document.createElement('span');
+                    coordLabel.className = 'absolute top-1 left-1 text-[8px] text-slate-300 font-normal leading-none';
+                    coordLabel.innerText = `${i},${j}`;
+                    cell.appendChild(coordLabel);
+
+                    const valSpan = document.createElement('span');
+                    valSpan.id = `val-${i}-${j}`;
+                    valSpan.innerText = "";
+                    cell.appendChild(valSpan);
+
+                    tableContainerEl.appendChild(cell);
+                }
+            }
+
+            // Initialize underlying DP array to 0s for visual generator
+            const initDp = Array.from({length: m + 1}, () => Array(n + 1).fill(''));
+            
+            // Setup generator
+            stateGenerator = editDistanceGenerator(strA, strB, initDp);
+            
+            // Reset text/metrics
+            stepExplEl.innerHTML = `Initialized Empty DP Table. Dimensions: ${m+1}x${n+1}. Click 'Start DP' to begin base cases.`;
+            metricMinOpsEl.innerText = "-";
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start DP`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+        }
+
+        // Deep copy 2D array
+        function copyDP(dp) {
+            return dp.map(row => [...row]);
+        }
+
+        // --- Algorithm Generator (Animation Driver) ---
+        function* editDistanceGenerator(A, B, dp) {
+            const m = A.length;
+            const n = B.length;
+
+            // 1. Base Cases: Column 0 (Deletions)
+            for (let i = 0; i <= m; i++) {
+                dp[i][0] = i;
+                yield {
+                    dp: copyDP(dp), currI: i, currJ: 0, phase: 'base_del',
+                    exp: `Base case: To convert <span class="font-bold">"${A.substring(0, i)}"</span> to an empty string, we must <strong class="text-red-600">Delete</strong> ${i} character(s).`,
+                    deps: []
+                };
+            }
+
+            // 2. Base Cases: Row 0 (Insertions)
+            for (let j = 1; j <= n; j++) {
+                dp[0][j] = j;
+                yield {
+                    dp: copyDP(dp), currI: 0, currJ: j, phase: 'base_ins',
+                    exp: `Base case: To convert an empty string to <span class="font-bold">"${B.substring(0, j)}"</span>, we must <strong class="text-blue-600">Insert</strong> ${j} character(s).`,
+                    deps: []
+                };
+            }
+
+            // 3. Fill the rest of the table
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    let charA = A[i-1];
+                    let charB = B[j-1];
+
+                    // Yield compare state
+                    yield {
+                        dp: copyDP(dp), currI: i, currJ: j, phase: 'compare',
+                        exp: `Comparing A[${i}] <strong class="text-indigo-600">'${charA}'</strong> and B[${j}] <strong class="text-indigo-600">'${charB}'</strong>.`,
+                        deps: [[i-1, j-1], [i-1, j], [i, j-1]] // highlight all 3 dependencies
+                    };
+
+                    if (charA === charB) {
+                        dp[i][j] = dp[i-1][j-1];
+                        yield {
+                            dp: copyDP(dp), currI: i, currJ: j, phase: 'match',
+                            exp: `Characters match! (<strong class="text-slate-600">'${charA}' == '${charB}'</strong>). No cost. Copying value from diagonal: <span class="font-bold">${dp[i-1][j-1]}</span>.`,
+                            deps: [[i-1, j-1], 'match'] // indicating match dependency
+                        };
+                    } else {
+                        let rep = dp[i-1][j-1]; // Replace
+                        let del = dp[i-1][j];   // Delete
+                        let ins = dp[i][j-1];   // Insert
+                        
+                        let minVal = Math.min(rep, del, ins);
+                        dp[i][j] = minVal + 1;
+
+                        let op = "";
+                        let phaseOp = "";
+                        let depNode = null;
+                        let depClass = "";
+
+                        if (minVal === rep) {
+                            op = "Replace"; phaseOp = 'replace'; depNode = [i-1, j-1]; depClass = 'replace';
+                        } else if (minVal === del) {
+                            op = "Delete"; phaseOp = 'delete'; depNode = [i-1, j]; depClass = 'delete';
+                        } else {
+                            op = "Insert"; phaseOp = 'insert'; depNode = [i, j-1]; depClass = 'insert';
+                        }
+
+                        yield {
+                            dp: copyDP(dp), currI: i, currJ: j, phase: phaseOp,
+                            exp: `Characters differ ('${charA}' != '${charB}'). Costs: Ins=${ins}, Del=${del}, Rep=${rep}.<br>Taking minimum (<span class="font-bold">${minVal}</span>) + 1. Operation: <strong class="${phaseOp === 'insert' ? 'text-blue-600' : phaseOp === 'delete' ? 'text-red-600' : 'text-yellow-600'}">${op}</strong>.`,
+                            deps: [depNode, depClass]
+                        };
+                    }
+                }
+            }
+            
+            // Final State
+            yield {
+                dp: copyDP(dp), currI: m, currJ: n, phase: 'final',
+                exp: `<strong>Algorithm Complete!</strong> Minimum edit distance to convert "${A}" to "${B}" is <span class="text-green-700 font-bold">${dp[m][n]}</span>.`,
+                deps: [],
+                finalAns: dp[m][n]
+            };
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { dp, currI, currJ, phase, exp, deps, finalAns } = state;
+
+            // Update Metrics & Explanation
+            stepExplEl.innerHTML = exp;
+            if (finalAns !== undefined) {
+                metricMinOpsEl.innerText = finalAns;
+            }
+
+            // Reset all cells first
+            for (let i = 0; i <= strA.length; i++) {
+                for (let j = 0; j <= strB.length; j++) {
+                    const cell = document.getElementById(`cell-${i}-${j}`);
+                    const valSpan = document.getElementById(`val-${i}-${j}`);
+                    
+                    // Keep computed styling if there is a number
+                    if (dp[i][j] !== '') {
+                        cell.className = 'dp-cell cell-default mono shadow-sm';
+                    } else {
+                        cell.className = 'dp-cell cell-default mono';
+                    }
+                    valSpan.innerText = dp[i][j];
+                }
+            }
+
+            // Apply Dependencies Highlight
+            if (deps && deps.length > 0) {
+                if (phase === 'compare') {
+                    // Highlight all three lightly
+                    deps.forEach(d => {
+                        const cell = document.getElementById(`cell-${d[0]}-${d[1]}`);
+                        if(cell) cell.classList.add('cell-dependency');
+                    });
+                } else if (deps.length === 2 && Array.isArray(deps[0])) {
+                    // Single dependency with specific class (e.g. dep-insert, dep-match)
+                    const cell = document.getElementById(`cell-${deps[0][0]}-${deps[0][1]}`);
+                    if(cell) {
+                        cell.classList.add('cell-dependency');
+                        cell.classList.add(`dep-${deps[1]}`);
+                    }
+                }
+            }
+
+            // Apply Current Cell Highlight
+            if (currI !== null && currJ !== null) {
+                const currentCell = document.getElementById(`cell-${currI}-${currJ}`);
+                
+                if (phase === 'base_del' || phase === 'delete') {
+                    currentCell.classList.add('cell-delete');
+                } else if (phase === 'base_ins' || phase === 'insert') {
+                    currentCell.classList.add('cell-insert');
+                } else if (phase === 'replace') {
+                    currentCell.classList.add('cell-replace');
+                } else if (phase === 'match') {
+                    currentCell.classList.add('cell-match');
+                } else if (phase === 'final') {
+                    currentCell.classList.add('cell-final');
+                } else {
+                    currentCell.classList.add('cell-compare');
+                }
+            }
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) setupVisualizer();
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                if(!stateGenerator) setupVisualizer();
+                
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-indigo-600', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-indigo-700', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                autoPlayLoop();
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start DP`;
+            btnStart.classList.replace('bg-slate-600', 'bg-indigo-600');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-indigo-700');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnReset.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                // Invert logic: right slider position = less delay = faster
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+
+            inputStrAEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+            inputStrBEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

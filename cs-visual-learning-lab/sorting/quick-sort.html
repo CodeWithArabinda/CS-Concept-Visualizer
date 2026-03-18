@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Sort Visualizer | CS Learning Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .bar {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Algorithm Colors */
+        .bar-pivot { background-color: #a855f7; transform: scaleY(1.05); box-shadow: 0 0 10px #a855f766; } /* Purple */
+        .bar-comparing { background-color: #eab308; transform: scaleY(1.1); z-index: 10; } /* Yellow */
+        .bar-swapping { background-color: #ef4444; } /* Red */
+        .bar-sorted { background-color: #22c55e; } /* Green */
+        .bar-active { background-color: #3b82f6; } /* Blue (Active Subarray) */
+        .bar-inactive { background-color: #cbd5e1; opacity: 0.5; } /* Gray */
+
+        .pseudo-line {
+            transition: all 0.1s;
+            border-left: 3px solid transparent;
+        }
+        .pseudo-active {
+            background-color: #3b82f620;
+            border-left-color: #3b82f6;
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+
+        #log-area::-webkit-scrollbar { width: 4px; }
+        #log-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .code-font { font-family: 'Fira Code', monospace; }
+    </style>
+</head>
+<body class="p-4 md:p-6 lg:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header & Stats -->
+        <header class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight">Quick Sort <span class="text-purple-600">Visualizer</span></h1>
+                <p class="text-slate-500 font-medium italic">CS Visual Learning Lab: Step-by-Step Recursion</p>
+            </div>
+            <div class="flex gap-3">
+                <div class="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 text-center">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Avg Time</span>
+                    <span class="text-sm font-bold text-blue-600">O(n log n)</span>
+                </div>
+                <div class="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 text-center">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Worst Case</span>
+                    <span class="text-sm font-bold text-red-600">O(n²)</span>
+                </div>
+                <div class="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 text-center">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Strategy</span>
+                    <span class="text-sm font-bold text-slate-700">Divide & Conquer</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Sidebar: Controls & Pseudocode -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Controls -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Dashboard</h2>
+                    <div class="space-y-4">
+                        <div class="space-y-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase">Custom Data (Comma separated)</label>
+                            <input type="text" id="customInput" placeholder="8, 3, 7, 4, 9, 2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm code-font focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="btnGenerate" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl transition-all">Randomize</button>
+                            <button id="btnReset" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl transition-all">Reset</button>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <button id="btnStart" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-purple-200 transition-all flex items-center justify-center">
+                                <span id="startIcon">▶</span> <span class="ml-2" id="startText">Start Sorting</span>
+                            </button>
+                            <button id="btnNext" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-xl transition-all">Next Step</button>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                <span>Animation Speed</span>
+                                <span id="speedLabel">500ms</span>
+                            </div>
+                            <input type="range" id="speedRange" min="50" max="1500" step="50" value="500" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics -->
+                <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Live Metrics</h2>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <span class="block text-[9px] text-slate-500 uppercase">Compares</span>
+                            <span id="metricCompares" class="text-lg font-bold text-yellow-400">0</span>
+                        </div>
+                        <div>
+                            <span class="block text-[9px] text-slate-500 uppercase">Swaps</span>
+                            <span id="metricSwaps" class="text-lg font-bold text-red-400">0</span>
+                        </div>
+                        <div>
+                            <span class="block text-[9px] text-slate-500 uppercase">Recursion</span>
+                            <span id="metricDepth" class="text-lg font-bold text-purple-400">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pseudocode -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Sort Strategy</h2>
+                    <div id="pseudocode" class="code-font text-[11px] space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div class="pseudo-line px-2 py-1" data-line="1">quickSort(arr, low, high):</div>
+                        <div class="pseudo-line px-2 py-1" data-line="2">&nbsp;&nbsp;if low < high:</div>
+                        <div class="pseudo-line px-2 py-1" data-line="3">&nbsp;&nbsp;&nbsp;&nbsp;p = partition(arr, low, high)</div>
+                        <div class="pseudo-line px-2 py-1" data-line="4">&nbsp;&nbsp;&nbsp;&nbsp;quickSort(arr, low, p - 1)</div>
+                        <div class="pseudo-line px-2 py-1" data-line="5">&nbsp;&nbsp;&nbsp;&nbsp;quickSort(arr, p + 1, high)</div>
+                        <div class="pseudo-line px-2 py-1 mt-2 font-bold" data-line="6">partition(arr, low, high):</div>
+                        <div class="pseudo-line px-2 py-1" data-line="7">&nbsp;&nbsp;pivot = arr[high]</div>
+                        <div class="pseudo-line px-2 py-1" data-line="8">&nbsp;&nbsp;i = low - 1</div>
+                        <div class="pseudo-line px-2 py-1" data-line="9">&nbsp;&nbsp;for j = low to high - 1:</div>
+                        <div class="pseudo-line px-2 py-1" data-line="10">&nbsp;&nbsp;&nbsp;&nbsp;if arr[j] < pivot: swap(i, j)</div>
+                        <div class="pseudo-line px-2 py-1" data-line="11">&nbsp;&nbsp;swap(i + 1, high)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Panel: Visualization -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Visualization Canvas -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-10">
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Array Workspace</h2>
+                        <div class="flex gap-4">
+                            <span class="flex items-center text-[10px] font-bold text-slate-400"><div class="w-2 h-2 bg-purple-500 rounded-sm mr-1"></div> Pivot</span>
+                            <span class="flex items-center text-[10px] font-bold text-slate-400"><div class="w-2 h-2 bg-yellow-500 rounded-sm mr-1"></div> Compare</span>
+                            <span class="flex items-center text-[10px] font-bold text-slate-400"><div class="w-2 h-2 bg-red-500 rounded-sm mr-1"></div> Swap</span>
+                            <span class="flex items-center text-[10px] font-bold text-slate-400"><div class="w-2 h-2 bg-emerald-500 rounded-sm mr-1"></div> Sorted</span>
+                        </div>
+                    </div>
+                    
+                    <div id="arrayContainer" class="flex items-end justify-center gap-1 md:gap-2 h-64 border-b border-slate-100 pb-2 mb-4">
+                        <!-- Bars -->
+                    </div>
+                    
+                    <div id="explanationPanel" class="bg-slate-50 p-4 rounded-xl border border-slate-100 min-h-[60px] flex items-center">
+                        <p id="explanationText" class="text-sm font-medium text-slate-600">Ready to visualize Quick Sort. Click "Start" to begin the partitioning process.</p>
+                    </div>
+                </div>
+
+                <!-- Log Panel -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-64">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Step Execution Log</h2>
+                        <span class="text-[10px] font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">History Limit: 20</span>
+                    </div>
+                    <div id="logArea" class="flex-grow overflow-y-auto space-y-2 pr-2 text-xs font-medium text-slate-600">
+                        <!-- Steps -->
+                    </div>
+                </div>
+
+                <!-- Theory Panel -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-purple-600">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4">Educational Summary</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm opacity-90 leading-relaxed text-slate-600">
+                        <div class="space-y-3">
+                            <p><strong>Quick Sort</strong> is a highly efficient sorting algorithm. It uses the <em>Lomuto Partition Scheme</em> in this visualization, which picks the last element as the <strong>pivot</strong>.</p>
+                            <p>Elements smaller than the pivot move to the left, and larger ones move to the right. This "Divide and Conquer" approach ensures that once a pivot is placed, its position is permanent.</p>
+                        </div>
+                        <div class="space-y-3">
+                            <ul class="space-y-2">
+                                <li><span class="font-bold text-slate-800">Partitioning:</span> The core engine that reorders elements around a pivot.</li>
+                                <li><span class="font-bold text-slate-800">Recursive:</span> The algorithm calls itself on the left and right subarrays until base cases (size 1 or 0) are reached.</li>
+                                <li><span class="font-bold text-slate-800">In-Place:</span> It requires very little extra memory compared to Merge Sort.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Toast -->
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastMsg" class="bg-slate-900 text-white px-8 py-3 rounded-full shadow-2xl font-bold text-sm"></div>
+    </div>
+
+    <script>
+        /**
+         * QUICK SORT VISUALIZER ENGINE
+         */
+        const DEFAULT_SIZE = 15;
+        let mainArray = [];
+        let steps = [];
+        let currentStepIdx = 0;
+        let isSolving = false;
+        let isPaused = true;
+        let speed = 500;
+        let autoInterval = null;
+        
+        let compares = 0;
+        let swaps = 0;
+
+        const arrayContainer = document.getElementById('arrayContainer');
+        const logArea = document.getElementById('logArea');
+        const speedRange = document.getElementById('speedRange');
+        const speedLabel = document.getElementById('speedLabel');
+        const customInput = document.getElementById('customInput');
+        const explanationText = document.getElementById('explanationText');
+
+        const metrics = {
+            compares: document.getElementById('metricCompares'),
+            swaps: document.getElementById('metricSwaps'),
+            depth: document.getElementById('metricDepth')
+        };
+
+        function init() {
+            generateRandomArray();
+            
+            document.getElementById('btnGenerate').onclick = generateRandomArray;
+            document.getElementById('btnReset').onclick = resetVisuals;
+            document.getElementById('btnStart').onclick = toggleSort;
+            document.getElementById('btnNext').onclick = nextStep;
+            
+            speedRange.oninput = (e) => {
+                speed = parseInt(e.target.value);
+                speedLabel.innerText = `${speed}ms`;
+                if (isSolving && !isPaused) {
+                    stopAuto();
+                    startAuto();
+                }
+            };
+        }
+
+        function generateRandomArray() {
+            stopAuto();
+            const n = DEFAULT_SIZE;
+            mainArray = Array.from({ length: n }, () => Math.floor(Math.random() * 80) + 20);
+            customInput.value = "";
+            resetVisuals();
+        }
+
+        function resetVisuals() {
+            stopAuto();
+            
+            // Check for custom input
+            if (customInput.value.trim() !== "") {
+                const parts = customInput.value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+                if (parts.length > 0) mainArray = parts;
+            }
+
+            currentStepIdx = 0;
+            compares = 0;
+            swaps = 0;
+            isSolving = false;
+            isPaused = true;
+            
+            document.getElementById('startText').innerText = "Start Sorting";
+            document.getElementById('startIcon').innerText = "▶";
+            updateMetrics(0, 0, 0);
+            
+            // Linearize Quick Sort into steps
+            const tempArr = [...mainArray];
+            steps = [];
+            quickSortRecursive(tempArr, 0, tempArr.length - 1, 0);
+            
+            renderArray();
+            logArea.innerHTML = '<div class="italic text-slate-400">Environment initialized. Ready to partition.</div>';
+            explanationText.innerText = "Ready to visualize Quick Sort. The algorithm will pick a pivot and partition the array.";
+            clearPseudocode();
+        }
+
+        /**
+         * QUICK SORT GENERATOR (Linearizing Recursion)
+         */
+        function quickSortRecursive(arr, low, high, depth) {
+            steps.push({ type: 'CALL', low, high, depth, line: 1, msg: `Calling QuickSort on range [${low}...${high}]` });
+            
+            if (low < high) {
+                const pIndex = partition(arr, low, high, depth);
+                quickSortRecursive(arr, low, pIndex - 1, depth + 1);
+                quickSortRecursive(arr, pIndex + 1, high, depth + 1);
+            } else if (low === high) {
+                steps.push({ type: 'SORTED', index: low, line: 2, msg: `Index ${low} is sorted (size 1 subarray).` });
+            }
+        }
+
+        function partition(arr, low, high, depth) {
+            const pivot = arr[high];
+            steps.push({ type: 'PIVOT_SELECT', index: high, value: pivot, line: 7, low, high, depth, msg: `Selected pivot ${pivot} at index ${high}.` });
+            
+            let i = low - 1;
+            steps.push({ type: 'POINTER_INIT', i: low - 1, line: 8, low, high, depth, msg: `Initializing boundary pointer i at ${low - 1}.` });
+
+            for (let j = low; j < high; j++) {
+                steps.push({ type: 'COMPARE', i, j, pivotIdx: high, line: 10, low, high, depth, msg: `Comparing ${arr[j]} with pivot ${pivot}.` });
+                
+                if (arr[j] < pivot) {
+                    i++;
+                    steps.push({ type: 'SWAP', i, j, line: 10, low, high, depth, msg: `${arr[j]} < ${pivot}, swapping indices ${i} and ${j}.` });
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+            }
+            
+            steps.push({ type: 'PIVOT_SWAP', i: i + 1, high, line: 11, low, high, depth, msg: `Placing pivot at its correct position ${i + 1}.` });
+            [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
+            
+            steps.push({ type: 'SORTED', index: i + 1, line: 11, low, high, depth, msg: `Pivot at ${i + 1} is now in its final sorted position.` });
+            return i + 1;
+        }
+
+        /**
+         * ANIMATION CONTROLLER
+         */
+        function nextStep() {
+            if (currentStepIdx >= steps.length) {
+                stopAuto();
+                showToast("Quick Sort Finished!");
+                renderArray(-1, -1, -1, -1, -1, true);
+                explanationText.innerText = "Sort complete! Every element has been placed in its final sorted position.";
+                return;
+            }
+
+            const step = steps[currentStepIdx];
+            processStep(step);
+            currentStepIdx++;
+        }
+
+        function processStep(step) {
+            updateLog(step.msg, step.type);
+            highlightLine(step.line);
+            explanationText.innerText = step.msg;
+
+            switch (step.type) {
+                case 'PIVOT_SELECT':
+                    renderArray(step.index, -1, -1, step.low, step.high);
+                    updateMetrics(null, null, step.depth);
+                    break;
+                case 'COMPARE':
+                    compares++;
+                    renderArray(step.pivotIdx, step.j, -1, step.low, step.high);
+                    updateMetrics(compares, null, step.depth);
+                    break;
+                case 'SWAP':
+                case 'PIVOT_SWAP':
+                    swaps++;
+                    // Apply visual swap
+                    const valI = mainArray[step.i];
+                    mainArray[step.i] = mainArray[step.j || step.high];
+                    if (step.j !== undefined) mainArray[step.j] = valI;
+                    else mainArray[step.high] = valI;
+                    
+                    renderArray(-1, step.i, step.j || step.high, step.low, step.high, false, true);
+                    updateMetrics(null, swaps, step.depth);
+                    break;
+                case 'SORTED':
+                    // We mark indices as sorted as we go in Quick Sort (the pivots)
+                    if (!window.sortedIndices) window.sortedIndices = new Set();
+                    window.sortedIndices.add(step.index);
+                    renderArray(-1, -1, -1, step.low, step.high);
+                    break;
+                case 'CALL':
+                    updateMetrics(null, null, step.depth);
+                    renderArray(-1, -1, -1, step.low, step.high);
+                    break;
+            }
+        }
+
+        function toggleSort() {
+            if (isPaused) {
+                isPaused = false;
+                isSolving = true;
+                document.getElementById('startText').innerText = "Pause Sorting";
+                document.getElementById('startIcon').innerText = "⏸";
+                startAuto();
+            } else {
+                isPaused = true;
+                document.getElementById('startText').innerText = "Resume Sorting";
+                document.getElementById('startIcon').innerText = "▶";
+                stopAuto();
+            }
+        }
+
+        function startAuto() {
+            autoInterval = setInterval(nextStep, speed);
+        }
+
+        function stopAuto() {
+            if (autoInterval) clearInterval(autoInterval);
+            autoInterval = null;
+        }
+
+        /**
+         * RENDERING UI
+         */
+        function renderArray(pivotIdx = -1, i = -1, j = -1, low = -1, high = -1, allSorted = false, isSwap = false) {
+            arrayContainer.innerHTML = '';
+            const maxVal = Math.max(...mainArray, 1);
+            
+            if (!window.sortedIndices) window.sortedIndices = new Set();
+
+            mainArray.forEach((val, idx) => {
+                const bar = document.createElement('div');
+                bar.className = 'bar w-full flex items-end justify-center rounded-t-sm relative';
+                bar.style.height = `${(val / maxVal) * 100}%`;
+                
+                // Color Logic
+                if (allSorted || window.sortedIndices.has(idx)) {
+                    bar.classList.add('bar-sorted');
+                } else if (idx === pivotIdx) {
+                    bar.classList.add('bar-pivot');
+                } else if (idx === i || idx === j) {
+                    bar.classList.add(isSwap ? 'bar-swapping' : 'bar-comparing');
+                } else if (idx >= low && idx <= high) {
+                    bar.classList.add('bar-active');
+                } else {
+                    bar.classList.add('bar-inactive');
+                }
+                
+                // Value Label for large bars
+                if (mainArray.length < 25) {
+                    const label = document.createElement('span');
+                    label.className = 'text-[9px] font-bold text-white mb-1 mb-1';
+                    label.innerText = val;
+                    bar.appendChild(label);
+                }
+
+                arrayContainer.appendChild(bar);
+            });
+        }
+
+        function updateMetrics(c, s, d) {
+            if (c !== null) metrics.compares.innerText = c;
+            if (s !== null) metrics.swaps.innerText = s;
+            if (d !== null) metrics.depth.innerText = d;
+        }
+
+        function updateLog(msg, type) {
+            const div = document.createElement('div');
+            const color = type === 'SORTED' ? 'text-emerald-600' : type.includes('SWAP') ? 'text-red-600' : type === 'PIVOT_SELECT' ? 'text-purple-600' : 'text-slate-600';
+            div.className = `border-l-2 border-slate-200 pl-2 py-1 ${color} animate-in fade-in slide-in-from-left-2 duration-300`;
+            div.innerHTML = msg;
+            logArea.prepend(div);
+            if (logArea.children.length > 20) logArea.lastChild.remove();
+        }
+
+        function highlightLine(lineNum) {
+            document.querySelectorAll('.pseudo-line').forEach(line => {
+                line.classList.remove('pseudo-active');
+                if (parseInt(line.dataset.line) === lineNum) line.classList.add('pseudo-active');
+            });
+        }
+
+        function clearPseudocode() {
+            document.querySelectorAll('.pseudo-line').forEach(l => l.classList.remove('pseudo-active'));
+            window.sortedIndices = new Set();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

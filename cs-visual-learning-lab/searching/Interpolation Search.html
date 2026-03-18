@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interpolation Search Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for array boxes */
+        .array-box {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Math formula styling */
+        .formula-box {
+            font-family: 'Courier New', Courier, monospace;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[1fr_350px] gap-6">
+    <!-- Header -->
+    <header class="col-span-1 xl:col-span-full text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Interpolation Search Visualizer</h1>
+        <p class="text-slate-500">Estimating positions in sorted, uniformly distributed arrays</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="col-span-1 xl:col-span-full bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4">
+        
+        <!-- Input Group -->
+        <div class="flex flex-wrap justify-center gap-4 items-end">
+            <div class="flex flex-col gap-1">
+                <label for="custom-array" class="text-sm font-semibold text-slate-600">Sorted Array Values</label>
+                <input type="text" id="custom-array" class="px-3 py-2 border border-slate-300 rounded-md w-72 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 10, 20, 30, 40, 50">
+            </div>
+            <div class="flex flex-col gap-1">
+                <label for="custom-target" class="text-sm font-semibold text-slate-600">Target Value</label>
+                <input type="text" id="custom-target" class="px-3 py-2 border border-slate-300 rounded-md w-32 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 40">
+            </div>
+            <button onclick="applyCustomInputs()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-md transition-colors h-[42px]">Apply Inputs</button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 items-center justify-center pt-2 border-t border-slate-100">
+            <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="generateRandomData()">Generate Sorted Array</button>
+            <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm" onclick="startSearch()">Start Search</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="200" max="3000" value="1200" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="flex flex-col gap-5">
+        <div class="bg-white rounded-xl p-8 shadow-sm flex flex-col items-center justify-center min-h-[400px] gap-8 relative overflow-hidden">
+            
+            <!-- Top Status Bar -->
+            <div class="w-full flex justify-between items-center px-4">
+                <div class="text-lg font-semibold bg-slate-100 px-6 py-2 rounded-lg border border-slate-200 text-slate-700 shadow-sm">
+                    Target: <span id="display-target" class="text-blue-600 font-bold text-xl ml-2">-</span>
+                </div>
+                
+                <!-- Dynamic Formula Display -->
+                <div class="hidden md:flex flex-col items-center bg-indigo-50 border border-indigo-100 p-3 rounded-lg shadow-sm" id="formula-container">
+                    <div class="text-xs font-bold text-indigo-400 mb-1 uppercase tracking-wider">Interpolation Formula</div>
+                    <div class="formula-box text-indigo-900 font-semibold text-sm" id="formula-text">
+                        pos = low + [ (target - arr[low]) * (high - low) / (arr[high] - arr[low]) ]
+                    </div>
+                </div>
+            </div>
+
+            <!-- Array Blocks Section -->
+            <div class="flex flex-wrap gap-2 justify-center mt-4 w-full" id="array-container">
+                <!-- Array boxes injected by JS -->
+            </div>
+
+            <!-- Explanation Panel -->
+            <div class="w-full max-w-3xl p-5 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg font-medium text-lg min-h-[80px] text-center shadow-sm mt-8 transition-colors duration-300" id="step-explanation">
+                Enter a sorted array and a target, then click "Start Search".
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-6 justify-center p-5 bg-white rounded-xl shadow-sm">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-blue-400 border border-blue-500 shadow-sm"></div>
+                <span>Low Pointer</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-red-400 border border-red-500 shadow-sm"></div>
+                <span>High Pointer</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-yellow-400 border border-yellow-500 shadow-sm"></div>
+                <span>Estimated Position (pos)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded bg-green-500 border border-green-600 shadow-sm"></div>
+                <span>Target Found</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sidebar Educational Panel -->
+    <aside class="flex flex-col gap-5">
+        <!-- Algorithm Metrics -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold mb-4 pb-2 border-b-2 border-slate-200 text-slate-800">Algorithm Metrics</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 bg-slate-50 p-4 rounded-lg text-center border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-sm uppercase tracking-wider">Estimations Calculated</div>
+                    <div class="text-4xl font-bold text-indigo-500 mt-1" id="metric-estimations">0</div>
+                </div>
+                <div class="col-span-2 bg-slate-50 p-4 rounded-lg text-center border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-sm uppercase tracking-wider">Comparisons</div>
+                    <div class="text-3xl font-bold text-slate-700 mt-1" id="metric-comps">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Info -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold mb-4 pb-2 border-b-2 border-slate-200 text-slate-800">Educational Panel</h2>
+            <p class="mb-4 text-slate-600 text-sm leading-relaxed">
+                <strong>Interpolation Search</strong> works similarly to how a human searches a dictionary. Instead of always checking the exact middle (like Binary Search), it estimates the target's probable position based on the values at the edges.
+            </p>
+            <p class="mb-4 text-slate-600 text-sm leading-relaxed">
+                <strong>Requirement:</strong> Data must be <em>sorted</em> and ideally <em>uniformly distributed</em> for optimal performance. If data is exponentially skewed, performance degrades.
+            </p>
+            <ul class="list-none flex flex-col gap-3">
+                <li class="flex justify-between items-center pb-2 border-b border-dashed border-slate-200">
+                    <span class="font-medium text-slate-700">Best Case</span>
+                    <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-mono font-bold text-xs shadow-sm">O(1)</span>
+                </li>
+                <li class="flex justify-between items-center pb-2 border-b border-dashed border-slate-200">
+                    <span class="font-medium text-slate-700">Average Case</span>
+                    <span class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded font-mono font-bold text-xs shadow-sm">O(log log n)</span>
+                </li>
+                <li class="flex justify-between items-center">
+                    <span class="font-medium text-slate-700">Worst Case</span>
+                    <span class="bg-rose-100 text-rose-800 px-2 py-1 rounded font-mono font-bold text-xs shadow-sm">O(n)</span>
+                </li>
+            </ul>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // --- Global State ---
+    let searchArray = [];
+    let targetValue = null;
+    
+    let searchGenerator = null;
+    let isPlaying = false;
+    let searchTimeout = null;
+    let animationSpeed = 1200;
+    
+    // DOM Elements
+    const arrayContainer = document.getElementById('array-container');
+    const explanationEl = document.getElementById('step-explanation');
+    const displayTarget = document.getElementById('display-target');
+    const formulaText = document.getElementById('formula-text');
+    const metricComps = document.getElementById('metric-comps');
+    const metricEstimations = document.getElementById('metric-estimations');
+    
+    const inputArr = document.getElementById('custom-array');
+    const inputTarget = document.getElementById('custom-target');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateRandomData();
+        updateSpeed();
+    }
+
+    // Generates a uniformly distributed sorted array
+    function generateRandomData() {
+        if (isPlaying) return;
+        
+        const size = 12; // Fixed reasonable size for visualization
+        searchArray = [];
+        
+        let currentValue = Math.floor(Math.random() * 10) + 1;
+        for (let i = 0; i < size; i++) {
+            searchArray.push(currentValue);
+            // Add a relatively uniform step to simulate uniform distribution
+            currentValue += Math.floor(Math.random() * 8) + 5; 
+        }
+        
+        // Pick a target
+        const r = Math.random();
+        if (r > 0.25) {
+            // Pick an existing element
+            targetValue = searchArray[Math.floor(Math.random() * size)];
+        } else {
+            // Pick a missing element within the range
+            let attempt = searchArray[Math.floor(size / 2)] + 2;
+            if(searchArray.includes(attempt)) attempt++;
+            targetValue = attempt;
+        }
+
+        inputArr.value = searchArray.join(', ');
+        inputTarget.value = targetValue;
+        
+        resetVisualizer();
+    }
+
+    function applyCustomInputs() {
+        if (isPlaying) return;
+
+        const arrVal = inputArr.value;
+        const targetVal = inputTarget.value;
+
+        if (!arrVal || !targetVal) {
+            alert("Please provide both array values and a target value.");
+            return;
+        }
+
+        let parsedArr = arrVal.split(',').map(item => parseInt(item.trim(), 10));
+        const parsedTarget = parseInt(targetVal.trim(), 10);
+
+        if (parsedArr.some(isNaN) || isNaN(parsedTarget)) {
+            alert("Please enter valid numbers only.");
+            return;
+        }
+
+        // Auto-sort the custom array as Interpolation Search requires sorted data
+        parsedArr.sort((a, b) => a - b);
+        inputArr.value = parsedArr.join(', '); // Show sorted result back to user
+
+        searchArray = parsedArr;
+        targetValue = parsedTarget;
+        
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- UI Rendering ---
+    function renderState(state) {
+        // Update Metrics
+        metricComps.textContent = state.comparisons || 0;
+        metricEstimations.textContent = state.estimations || 0;
+
+        // Update Explanation
+        explanationEl.textContent = state.msg;
+        
+        // Highlight logic for the explanation panel
+        if (state.status === 'found') {
+            explanationEl.className = "w-full max-w-3xl p-5 bg-green-50 border-l-4 border-green-500 rounded-r-lg font-medium text-lg min-h-[80px] text-center shadow-sm text-green-800 transition-colors duration-300 mt-8";
+        } else if (state.status === 'not_found') {
+            explanationEl.className = "w-full max-w-3xl p-5 bg-red-50 border-l-4 border-red-500 rounded-r-lg font-medium text-lg min-h-[80px] text-center shadow-sm text-red-800 transition-colors duration-300 mt-8";
+        } else {
+            explanationEl.className = "w-full max-w-3xl p-5 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg font-medium text-lg min-h-[80px] text-center shadow-sm text-slate-800 transition-colors duration-300 mt-8";
+        }
+
+        // Update Formula Display
+        if (state.formulaString) {
+            formulaText.innerHTML = state.formulaString;
+        } else {
+            formulaText.innerHTML = "pos = low + [ (target - arr[low]) * (high - low) / (arr[high] - arr[low]) ]";
+        }
+
+        // Render Array Blocks
+        arrayContainer.innerHTML = '';
+        
+        searchArray.forEach((val, i) => {
+            const block = document.createElement('div');
+            block.className = 'flex flex-col items-center gap-1 relative';
+
+            const box = document.createElement('div');
+            
+            // Core logic for Box Colors
+            let bgClass = 'bg-slate-100 text-slate-700 border-slate-300';
+            let extraClasses = '';
+            let ringClass = '';
+
+            // Check if element is entirely out of current search bounds
+            const outOfBounds = (state.low !== undefined && (i < state.low || i > state.high));
+
+            if (outOfBounds && state.status !== 'found' && state.status !== 'not_found') {
+                bgClass = 'bg-slate-50 text-slate-400 border-slate-200';
+                extraClasses = 'opacity-50';
+            } else {
+                // Background priority: Found > Estimated Position (pos) > Low/High
+                if (state.status === 'found' && i === state.pos) {
+                    bgClass = 'bg-green-500 text-white border-green-700 shadow-lg';
+                    extraClasses = 'scale-110 z-10';
+                } 
+                else if (i === state.pos) {
+                    bgClass = 'bg-yellow-400 text-black border-yellow-600 shadow-md';
+                    extraClasses = 'scale-110 z-10';
+                }
+                else if (i === state.low && i === state.high) {
+                    // Both Low and High are here
+                    bgClass = 'bg-purple-300 text-slate-800 border-purple-500'; 
+                }
+                else if (i === state.low) {
+                    bgClass = 'bg-blue-400 text-white border-blue-600 shadow-sm';
+                }
+                else if (i === state.high) {
+                    bgClass = 'bg-red-400 text-white border-red-600 shadow-sm';
+                }
+                else if (!outOfBounds && state.status !== 'not_found') {
+                    // Inside active search area but not a special pointer
+                    bgClass = 'bg-white text-slate-800 border-slate-300 shadow-sm';
+                }
+            }
+
+            box.className = `array-box w-[50px] sm:w-[60px] h-[50px] sm:h-[60px] flex items-center justify-center text-xl sm:text-2xl font-bold border-2 rounded-lg ${bgClass} ${extraClasses}`;
+            box.textContent = val;
+
+            // --- Pointer Labels under the box ---
+            const labelsContainer = document.createElement('div');
+            labelsContainer.className = 'flex flex-col items-center justify-start h-10 mt-1';
+            
+            const indexLabel = document.createElement('div');
+            indexLabel.className = `text-xs font-mono text-slate-500`;
+            indexLabel.textContent = `[${i}]`;
+            labelsContainer.appendChild(indexLabel);
+
+            if (i === state.low) {
+                const l = document.createElement('div');
+                l.className = 'text-[10px] sm:text-xs font-bold text-blue-600 leading-tight';
+                l.textContent = 'LOW';
+                labelsContainer.appendChild(l);
+            }
+            if (i === state.high) {
+                const h = document.createElement('div');
+                h.className = 'text-[10px] sm:text-xs font-bold text-red-600 leading-tight';
+                h.textContent = 'HIGH';
+                labelsContainer.appendChild(h);
+            }
+            if (i === state.pos) {
+                const p = document.createElement('div');
+                p.className = 'text-[10px] sm:text-xs font-bold text-yellow-600 leading-tight';
+                p.textContent = 'POS';
+                labelsContainer.appendChild(p);
+            }
+
+            block.appendChild(box);
+            block.appendChild(labelsContainer);
+            arrayContainer.appendChild(block);
+        });
+    }
+
+    // --- Interpolation Search Algorithm Generator ---
+    function* getInterpolationSearchSteps(arr, target) {
+        let low = 0;
+        let high = arr.length - 1;
+        let estimations = 0;
+        let comparisons = 0;
+
+        yield { phase: 'start', msg: `Initializing bounds. Target is ${target}.`, low, high, pos: -1, estimations, comparisons, status: 'searching' };
+
+        while (low <= high && target >= arr[low] && target <= arr[high]) {
+            
+            if (low === high) {
+                comparisons++;
+                yield { phase: 'compare_edge', msg: `Low and High are equal. Direct comparison required to prevent division by zero.`, low, high, pos: low, estimations, comparisons, status: 'searching' };
+                
+                if (arr[low] === target) {
+                    yield { phase: 'match', msg: `Target ${target} found at index ${low}.`, low, high, pos: low, estimations, comparisons, status: 'found' };
+                } else {
+                    yield { phase: 'not_found', msg: `Checked index ${low}. Target ${target} not found.`, low, high, pos: -1, estimations, comparisons, status: 'not_found' };
+                }
+                return;
+            }
+
+            // Estimate Position
+            estimations++;
+            const fraction = (target - arr[low]) / (arr[high] - arr[low]);
+            const pos = low + Math.floor(fraction * (high - low));
+            
+            // Create a visual string showing the math
+            const formulaString = `pos = <span class="text-blue-600">${low}</span> + &lfloor; ( (<span class="text-green-600">${target}</span> - ${arr[low]}) * (<span class="text-red-600">${high}</span> - <span class="text-blue-600">${low}</span>) ) / (${arr[high]} - ${arr[low]}) &rfloor; = <span class="bg-yellow-200 px-1 rounded text-yellow-800">${pos}</span>`;
+
+            yield { 
+                phase: 'estimate', 
+                msg: `Estimating position using formula. Expected position (pos) is ${pos}.`, 
+                low, high, pos, estimations, comparisons, status: 'searching',
+                formulaString 
+            };
+
+            // Compare
+            comparisons++;
+            yield { 
+                phase: 'compare', 
+                msg: `Checking element at estimated index ${pos}. Comparing ${arr[pos]} with target ${target}.`, 
+                low, high, pos, estimations, comparisons, status: 'searching',
+                formulaString
+            };
+
+            if (arr[pos] === target) {
+                yield { phase: 'match', msg: `Success! Target ${target} found at index ${pos}.`, low, high, pos, estimations, comparisons, status: 'found', formulaString };
+                return;
+            }
+
+            // Adjust
+            if (arr[pos] < target) {
+                yield { 
+                    phase: 'adjust', 
+                    msg: `${arr[pos]} is less than ${target}. Target must be to the right. Moving Low to ${pos + 1}.`, 
+                    low: pos + 1, high, pos, estimations, comparisons, status: 'searching' 
+                };
+                low = pos + 1;
+            } else {
+                yield { 
+                    phase: 'adjust', 
+                    msg: `${arr[pos]} is greater than ${target}. Target must be to the left. Moving High to ${pos - 1}.`, 
+                    low, high: pos - 1, pos, estimations, comparisons, status: 'searching' 
+                };
+                high = pos - 1;
+            }
+        }
+
+        // Loop exit analysis
+        if (target < arr[low]) {
+            yield { phase: 'not_found', msg: `Target ${target} is smaller than element at Low boundary. It cannot be in the array.`, low, high, pos: -1, estimations, comparisons, status: 'not_found' };
+        } else if (target > arr[high]) {
+            yield { phase: 'not_found', msg: `Target ${target} is larger than element at High boundary. It cannot be in the array.`, low, high, pos: -1, estimations, comparisons, status: 'not_found' };
+        } else {
+             yield { phase: 'not_found', msg: `Search bounds exhausted. Target ${target} not found.`, low, high, pos: -1, estimations, comparisons, status: 'not_found' };
+        }
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!searchGenerator) return;
+
+        const result = searchGenerator.next();
+        
+        if (result.done) {
+            finishSearch();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            searchTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startSearch() {
+        if (!searchArray.length || targetValue === null) {
+            alert("Please generate data or apply custom inputs first.");
+            return;
+        }
+
+        if (!searchGenerator) {
+            searchGenerator = getInterpolationSearchSteps(searchArray, targetValue);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseSearch() {
+        isPlaying = false;
+        clearTimeout(searchTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseSearch();
+        if (!searchGenerator) {
+            searchGenerator = getInterpolationSearchSteps(searchArray, targetValue);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseSearch();
+        searchGenerator = null;
+        
+        displayTarget.textContent = targetValue !== null ? targetValue : '-';
+        
+        renderState({
+            phase: 'idle',
+            msg: `Ready to search for ${targetValue}. Click "Start Search" to begin.`,
+            low: -1, high: -1, pos: -1,
+            estimations: 0, comparisons: 0,
+            status: 'idle'
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishSearch() {
+        isPlaying = false;
+        searchGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = searchGenerator !== null;
+        
+        inputArr.disabled = isActive;
+        inputTarget.disabled = isActive;
+        btnRandom.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseSearch;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start Search";
+            btnStart.onclick = startSearch;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("Success!") || explanationEl.textContent.includes("not found") || explanationEl.textContent.includes("cannot be in");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

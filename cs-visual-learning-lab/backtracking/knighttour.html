@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knight's Tour Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for board squares */
+        .board-square {
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        .knight-icon {
+            transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Knight's Tour Visualizer</h1>
+        <p class="text-slate-500">Visualizing recursive exploration and backtracking on a chessboard</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <div class="flex flex-wrap gap-4 items-center justify-center">
+            
+            <div class="flex flex-col gap-1 items-start">
+                <label for="board-size" class="text-sm font-semibold text-slate-600">Board Size</label>
+                <select id="board-size" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-32" onchange="resetVisualizer()">
+                    <option value="5">5 x 5</option>
+                    <option value="6" selected>6 x 6</option>
+                    <option value="7">7 x 7</option>
+                    <option value="8">8 x 8</option>
+                </select>
+            </div>
+
+            <div class="w-px h-10 bg-slate-200 mx-2"></div>
+
+            <button id="btn-start" class="px-5 py-2 mt-5 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm" onclick="startTour()">Start Tour</button>
+            <button id="btn-next" class="px-4 py-2 mt-5 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 mt-5 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4 mt-5">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="50" max="1000" value="400" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        <!-- Board Area (Left/Center) -->
+        <div class="xl:col-span-2 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center flex justify-between px-6 items-center">
+                <span>Chessboard</span>
+                <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full uppercase tracking-wider font-bold">Click a square to set starting position</span>
+            </div>
+            
+            <div class="w-full flex justify-center items-center p-6 bg-slate-50/50 min-h-[500px]">
+                <!-- Dynamic Grid Container -->
+                <div id="chessboard" class="grid border-4 border-slate-800 shadow-xl bg-slate-800 gap-[1px]">
+                    <!-- Squares injected by JS -->
+                </div>
+            </div>
+            
+            <!-- Explanation Panel -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                Select a board size, optionally click a starting square, and click "Start Tour".
+            </div>
+        </div>
+
+        <!-- Metrics & Legend (Right) -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-4 pb-2 border-b-2 border-slate-100 text-slate-800">Tour Metrics</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Moves Performed</div>
+                        <div class="text-3xl font-bold text-blue-600 mt-1" id="metric-moves">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Backtracking Steps</div>
+                        <div class="text-3xl font-bold text-red-500 mt-1" id="metric-backtracks">0</div>
+                    </div>
+                    <div class="col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-200 text-center flex justify-between items-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Squares Visited</div>
+                        <div class="text-xl font-bold text-green-600"><span id="metric-visited">1</span> / <span id="metric-total">36</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold pb-2 border-b-2 border-slate-100 text-slate-800">Color Legend</h2>
+                
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-8 h-8 rounded bg-yellow-400 border-2 border-yellow-600 shadow-sm flex items-center justify-center text-xl">♞</div>
+                    <span>Current Move (Knight's Location)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-8 h-8 rounded bg-green-500 border-2 border-green-700 shadow-sm flex items-center justify-center text-white font-bold text-xs">#</div>
+                    <span>Visited Square (Success Path)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-8 h-8 rounded bg-red-400 border-2 border-red-600 shadow-sm flex items-center justify-center text-white font-bold text-xs">#</div>
+                    <span>Backtracking (Dead End)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium mt-2 pt-2 border-t border-slate-100">
+                    <div class="flex gap-1">
+                        <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300"></div>
+                        <div class="w-4 h-4 rounded bg-slate-400 border border-slate-500"></div>
+                    </div>
+                    <span class="text-slate-500">Unvisited Chessboard Squares</span>
+                </div>
+            </div>
+
+            <!-- Educational Panel -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600 leading-relaxed flex-grow">
+                <h2 class="text-base font-bold mb-2 text-slate-800">About the Algorithm</h2>
+                <p class="mb-2">
+                    The <strong>Knight's Tour</strong> is a classic mathematical problem. The knight must visit every square exactly once using only valid "L-shaped" chess moves.
+                </p>
+                <p class="mb-2">
+                    This visualizer uses <strong>Depth-First Search (DFS) with Backtracking</strong>. If the knight reaches a dead end before visiting all squares, it <em>backtracks</em> (undoes its recent moves) to try alternative paths.
+                </p>
+                <p class="text-xs bg-slate-100 p-2 rounded border border-slate-200 mt-4 italic">
+                    Note: To ensure the visualization finishes in a reasonable time, it uses <strong>Warnsdorff's heuristic</strong>, which prioritizes moves that have the fewest onward choices, vastly reducing the need to backtrack on larger boards.
+                </p>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- Global State ---
+    let boardSize = 6;
+    let board = [];
+    let startRow = 0;
+    let startCol = 0;
+    
+    let tourGenerator = null;
+    let isPlaying = false;
+    let tourTimeout = null;
+    let animationSpeed = 400; // ms per frame
+    
+    // Knight Moves (L-shapes)
+    const moveOffsets = [
+        [1, 2], [2, 1], [2, -1], [1, -2],
+        [-1, -2], [-2, -1], [-2, 1], [-1, 2]
+    ];
+    
+    // DOM Elements
+    const boardEl = document.getElementById('chessboard');
+    const explanationEl = document.getElementById('step-explanation');
+    const metricMoves = document.getElementById('metric-moves');
+    const metricBacktracks = document.getElementById('metric-backtracks');
+    const metricVisited = document.getElementById('metric-visited');
+    const metricTotal = document.getElementById('metric-total');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+
+    // --- Initialization ---
+    function init() {
+        resetVisualizer();
+        updateSpeed();
+    }
+
+    function createEmptyBoard() {
+        board = Array(boardSize).fill().map(() => Array(boardSize).fill(-1));
+        // Mark start square visually before running
+        board[startRow][startCol] = 1; 
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    function handleSquareClick(r, c) {
+        if (isPlaying || tourGenerator) return; // Can't change during run
+        startRow = r;
+        startCol = c;
+        createEmptyBoard();
+        renderInitialBoard();
+        explanationEl.textContent = `Starting position set to (${r}, ${c}). Click "Start Tour".`;
+    }
+
+    // --- UI Rendering ---
+    function renderInitialBoard() {
+        boardEl.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+        boardEl.style.width = `${boardSize * 50}px`;
+        boardEl.style.height = `${boardSize * 50}px`;
+        boardEl.innerHTML = '';
+        
+        metricTotal.textContent = boardSize * boardSize;
+
+        for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+                const cell = document.createElement('div');
+                const isLight = (r + c) % 2 === 0;
+                
+                // Base chessboard colors
+                let bgClass = isLight ? 'bg-slate-200' : 'bg-slate-400';
+                let content = '';
+
+                if (r === startRow && c === startCol) {
+                    bgClass = 'bg-yellow-400'; // Current location
+                    content = '<span class="knight-icon text-3xl text-slate-900 drop-shadow-md">♞</span>';
+                }
+
+                cell.className = `board-square w-full h-full flex items-center justify-center font-bold text-lg ${bgClass}`;
+                cell.id = `cell-${r}-${c}`;
+                cell.innerHTML = content;
+                
+                cell.onclick = () => handleSquareClick(r, c);
+                boardEl.appendChild(cell);
+            }
+        }
+    }
+
+    function updateBoardUI(state) {
+        // Update Metrics
+        metricMoves.textContent = state.moves;
+        metricBacktracks.textContent = state.backtracks;
+        metricVisited.textContent = state.step;
+        
+        // Render Explanation text with appropriate color
+        explanationEl.textContent = state.msg;
+        if (state.type === 'backtrack' || state.type === 'failed') {
+            explanationEl.className = "p-4 bg-red-50 border-t border-red-200 border-l-4 border-l-red-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-red-800";
+        } else if (state.type === 'done') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else {
+            explanationEl.className = "p-4 bg-blue-50 border-t border-blue-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-blue-800";
+        }
+
+        // Fast update for all cells
+        for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+                const cell = document.getElementById(`cell-${r}-${c}`);
+                const stepNum = state.board[r][c];
+                const isLight = (r + c) % 2 === 0;
+                
+                let bgClass = isLight ? 'bg-slate-200' : 'bg-slate-400';
+                let content = '';
+                let textColor = 'text-white';
+
+                if (stepNum !== -1) {
+                    // It has been visited
+                    bgClass = 'bg-green-500';
+                    content = stepNum;
+                }
+
+                // Overrides based on current action
+                if (state.type === 'backtrack' && r === state.r && c === state.c) {
+                    // Cell we are abandoning
+                    bgClass = 'bg-red-400';
+                    content = state.step; // Show its number before removing
+                } 
+                else if (r === state.currentR && c === state.currentC) {
+                    // Knight's current location
+                    bgClass = 'bg-yellow-400 shadow-inner z-10 scale-[1.05] border border-yellow-600';
+                    content = `<div class="flex flex-col items-center leading-none">
+                                <span class="knight-icon text-2xl md:text-3xl text-slate-900 drop-shadow-md relative top-1">♞</span>
+                                <span class="text-[10px] text-slate-800 font-black relative bottom-1">${stepNum !== -1 ? stepNum : state.step}</span>
+                               </div>`;
+                }
+
+                cell.className = `board-square w-full h-full flex items-center justify-center font-bold text-lg ${bgClass} ${textColor}`;
+                cell.innerHTML = content;
+            }
+        }
+    }
+
+    // --- Knight's Tour Algorithm (Generator) ---
+    function* getKnightsTourSteps(n, startR, startC) {
+        let internalBoard = Array(n).fill().map(() => Array(n).fill(-1));
+        let moves = 0;
+        let backtracks = 0;
+
+        // Warnsdorff's heuristic helper: Count valid onward moves
+        function countOnwardMoves(r, c) {
+            let count = 0;
+            for(let i = 0; i < 8; i++) {
+                let nr = r + moveOffsets[i][0];
+                let nc = c + moveOffsets[i][1];
+                if(nr >= 0 && nr < n && nc >= 0 && nc < n && internalBoard[nr][nc] === -1) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        // Set start
+        internalBoard[startR][startC] = 1;
+
+        // Recursive DFS solver
+        function* solve(r, c, step) {
+            yield { 
+                type: 'visit', board: internalBoard, currentR: r, currentC: c, 
+                step, moves, backtracks, 
+                msg: `Step ${step}: Knight moved to square (${r}, ${c}).` 
+            };
+
+            if (step === n * n) return true; // Tour complete
+
+            // Generate and sort moves by Warnsdorff's Rule to minimize backtracking
+            let validMoves = [];
+            for (let i = 0; i < 8; i++) {
+                let nr = r + moveOffsets[i][0];
+                let nc = c + moveOffsets[i][1];
+                if (nr >= 0 && nr < n && nc >= 0 && nc < n && internalBoard[nr][nc] === -1) {
+                    validMoves.push({nr, nc, degree: countOnwardMoves(nr, nc)});
+                }
+            }
+            // Sort ascending by degree
+            validMoves.sort((a, b) => a.degree - b.degree);
+
+            for (let move of validMoves) {
+                let {nr, nc} = move;
+                
+                internalBoard[nr][nc] = step + 1;
+                moves++;
+                
+                if (yield* solve(nr, nc, step + 1)) return true;
+                
+                // BACKTRACK
+                internalBoard[nr][nc] = -1;
+                backtracks++;
+                
+                yield { 
+                    type: 'backtrack', board: internalBoard, currentR: r, currentC: c, 
+                    r: nr, c: nc, step: step + 1, moves, backtracks, 
+                    msg: `Dead end from (${nr}, ${nc}). Backtracking to (${r}, ${c}).` 
+                };
+            }
+
+            return false;
+        }
+
+        let success = yield* solve(startR, startC, 1);
+        
+        if (success) {
+            yield { type: 'done', board: internalBoard, currentR: -1, currentC: -1, step: n*n, moves, backtracks, msg: `Knight's Tour complete! All ${n*n} squares visited.` };
+        } else {
+            yield { type: 'failed', board: internalBoard, currentR: startR, currentC: startC, step: 1, moves, backtracks, msg: `No solution exists from this starting square on this board size.` };
+        }
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!tourGenerator) return;
+
+        const result = tourGenerator.next();
+        
+        if (result.done) {
+            finishTour();
+            return;
+        }
+
+        updateBoardUI(result.value);
+
+        if (isPlaying) {
+            tourTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startTour() {
+        if (!tourGenerator) {
+            // Read UI states to initialize
+            boardSize = parseInt(document.getElementById('board-size').value, 10);
+            tourGenerator = getKnightsTourSteps(boardSize, startRow, startCol);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseTour() {
+        isPlaying = false;
+        clearTimeout(tourTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseTour();
+        if (!tourGenerator) {
+            boardSize = parseInt(document.getElementById('board-size').value, 10);
+            tourGenerator = getKnightsTourSteps(boardSize, startRow, startCol);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseTour();
+        tourGenerator = null;
+        
+        // Make sure we update size if changed via dropdown
+        const sizeSelect = document.getElementById('board-size').value;
+        if(boardSize !== parseInt(sizeSelect)) {
+            boardSize = parseInt(sizeSelect);
+            // reset start position if out of bounds
+            if(startRow >= boardSize || startCol >= boardSize) {
+                startRow = 0;
+                startCol = 0;
+            }
+        }
+        
+        createEmptyBoard();
+        renderInitialBoard();
+        
+        metricMoves.textContent = "0";
+        metricBacktracks.textContent = "0";
+        metricVisited.textContent = "1";
+        explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        explanationEl.textContent = `Select a board size, optionally click a starting square, and click "Start Tour".`;
+        
+        updateButtonStates();
+    }
+
+    function finishTour() {
+        isPlaying = false;
+        tourGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = tourGenerator !== null;
+        const sizeSelect = document.getElementById('board-size');
+        
+        sizeSelect.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseTour;
+            btnStart.className = "px-5 py-2 mt-5 rounded-md font-bold transition-colors bg-amber-500 text-white hover:bg-amber-600 w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start Tour";
+            btnStart.onclick = startTour;
+            btnStart.className = "px-5 py-2 mt-5 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 w-32 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("Tour complete") || explanationEl.textContent.includes("No solution");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

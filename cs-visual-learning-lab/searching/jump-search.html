@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jump Search Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Smooth transitions for array blocks */
+        .block-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Custom scrollbar for array container */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Jump Search Visualizer
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Generate Sorted Array
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start Search
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium transition-colors border border-indigo-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="10" max="1500" value="600" class="w-20 accent-purple-600" dir="rtl">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Fields -->
+            <div class="flex flex-col sm:flex-row gap-4 items-end bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="flex-grow w-full">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Sorted Array (comma-separated)</label>
+                    <input type="text" id="input-array" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 mono" placeholder="e.g., 2, 4, 6, 8, 10...">
+                </div>
+                <div class="w-full sm:w-48">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Target Value</label>
+                    <input type="number" id="input-target" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 mono" placeholder="e.g., 8">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready to search.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[90px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Jump Size</div>
+                        <div id="metric-jump" class="text-xl font-bold text-purple-600 mono">-</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[90px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Comparisons</div>
+                        <div id="metric-ops" class="text-xl font-bold text-rose-500 mono">0</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[90px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Current Idx</div>
+                        <div id="metric-idx" class="text-xl font-bold text-blue-600 mono">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col gap-6">
+                
+                <!-- Legend -->
+                <div class="flex flex-wrap items-center justify-center gap-5 text-sm font-medium bg-slate-50 py-3 rounded-lg border border-slate-100">
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-white border border-slate-300"></span> Unchecked</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-purple-500 border border-purple-600 shadow-sm"></span> Jump Step</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-blue-100 border-2 border-blue-400"></span> Search Block</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-yellow-400 border border-yellow-500 shadow-sm"></span> Current Comparison</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-green-500 border border-green-600 shadow-sm"></span> Target Found</div>
+                </div>
+
+                <!-- Array Container -->
+                <div class="w-full overflow-x-auto custom-scrollbar pb-4 pt-2">
+                    <div class="flex items-end justify-start gap-2 min-w-max px-2" id="array-container">
+                        <!-- Array elements injected via JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel -->
+        <aside class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-fit sticky top-48">
+            <h2 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                </svg>
+                Algorithm Theory
+            </h2>
+            
+            <div class="space-y-5 text-sm text-slate-600">
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-1">What is Jump Search?</h3>
+                    <p>Jump Search is a searching algorithm for <strong>sorted arrays</strong>. Instead of checking every element (Linear Search) or halving the search space (Binary Search), it jumps ahead by fixed steps to skip elements.</p>
+                </div>
+
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-1">The Strategy</h3>
+                    <ol class="list-decimal pl-5 space-y-1">
+                        <li>Calculate the optimal jump size: <strong>&radic;n</strong></li>
+                        <li>Jump through the array by this size until you find a value greater than the target.</li>
+                        <li>This determines the block where the target might exist.</li>
+                        <li>Perform a standard linear search backwards or forwards within this specific block.</li>
+                    </ol>
+                </div>
+
+                <div class="bg-purple-50 border border-purple-100 rounded-lg p-3 mt-4">
+                    <h3 class="font-bold text-purple-900 mb-2 border-b border-purple-200 pb-1">Complexity Metrics</h3>
+                    <div class="grid grid-cols-1 gap-3 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="text-purple-600 font-semibold">Time Complexity</span>
+                            <span class="font-mono text-purple-900 font-bold text-sm bg-purple-100 px-2 py-0.5 rounded">O(&radic;n)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-purple-600 font-semibold">Optimal Jump Size</span>
+                            <span class="font-mono text-purple-900 font-bold text-sm bg-purple-100 px-2 py-0.5 rounded">&radic;n</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-purple-600 font-semibold">Space Complexity</span>
+                            <span class="font-mono text-purple-900 font-bold text-sm bg-purple-100 px-2 py-0.5 rounded">O(1)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="text-[11px] text-slate-400 leading-tight italic">
+                    Jump search falls between Linear Search O(n) and Binary Search O(log n) in terms of speed, but is particularly useful when reversing through an array is costly.
+                </p>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        let currentArray = [];
+        let targetValue = 0;
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 600; // ms
+
+        // DOM Elements
+        const arrayContainerEl = document.getElementById('array-container');
+        const stepExplEl = document.getElementById('step-explanation');
+        const metricJumpEl = document.getElementById('metric-jump');
+        const metricOpsEl = document.getElementById('metric-ops');
+        const metricIdxEl = document.getElementById('metric-idx');
+        
+        const inputArrayEl = document.getElementById('input-array');
+        const inputTargetEl = document.getElementById('input-target');
+        
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // --- Initialization ---
+        function init() {
+            generateRandomSortedArray();
+            setupEventListeners();
+        }
+
+        function generateRandomSortedArray() {
+            // Generate a sorted array of 15-20 random elements
+            const size = Math.floor(Math.random() * 6) + 15;
+            let arr = new Set();
+            while(arr.size < size) {
+                arr.add(Math.floor(Math.random() * 100) + 1);
+            }
+            currentArray = Array.from(arr).sort((a, b) => a - b);
+            
+            // Pick a random target (70% chance it exists in the array, 30% random)
+            if (Math.random() > 0.3) {
+                targetValue = currentArray[Math.floor(Math.random() * currentArray.length)];
+            } else {
+                targetValue = Math.floor(Math.random() * 100) + 1;
+            }
+
+            // Update UI Inputs
+            inputArrayEl.value = currentArray.join(', ');
+            inputTargetEl.value = targetValue;
+            
+            resetVisualizer();
+        }
+
+        function readInputs() {
+            try {
+                // Parse array
+                const rawArray = inputArrayEl.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+                if (rawArray.length === 0) throw new Error("Array is empty");
+                
+                // Ensure it's sorted
+                currentArray = rawArray.sort((a, b) => a - b);
+                inputArrayEl.value = currentArray.join(', '); // write back sorted
+                
+                // Parse target
+                const target = parseInt(inputTargetEl.value, 10);
+                if (isNaN(target)) throw new Error("Invalid target");
+                targetValue = target;
+
+                return true;
+            } catch (e) {
+                alert("Please enter valid comma-separated numbers and a valid target.");
+                return false;
+            }
+        }
+
+        function resetVisualizer() {
+            stopAutoPlay();
+            if (!readInputs()) return;
+
+            stateGenerator = jumpSearchGenerator(currentArray, targetValue);
+            
+            // Render initial clean state
+            const initialState = currentArray.map(val => ({ val, state: 'default' }));
+            renderState({
+                arr: initialState,
+                explanation: `Ready to search for target: <span class="font-bold text-purple-600">${targetValue}</span>.`,
+                jumpSize: '-',
+                comparisons: 0,
+                currentIndex: '-'
+            });
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start Search`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+        }
+
+        // --- Algorithm Generator ---
+        function* jumpSearchGenerator(arr, target) {
+            let n = arr.length;
+            let step = Math.floor(Math.sqrt(n));
+            let prev = 0;
+            let ops = 0;
+
+            let stateArr = arr.map(val => ({ val, state: 'default' }));
+
+            yield { 
+                arr: stateArr, 
+                explanation: `Calculated jump size: &radic;${n} &approx; <span class="font-bold text-purple-600">${step}</span>.`, 
+                jumpSize: step, 
+                comparisons: ops, 
+                currentIndex: prev 
+            };
+
+            // 1. Jumping Phase
+            while (arr[Math.min(step, n) - 1] < target) {
+                ops++;
+                let checkIdx = Math.min(step, n) - 1;
+                
+                // Highlight Jump
+                let jumpState = stateArr.map(a => ({...a}));
+                jumpState[checkIdx].state = 'jump';
+                
+                yield { 
+                    arr: jumpState, 
+                    explanation: `Jumping to index ${checkIdx}. Value <span class="font-bold">${arr[checkIdx]}</span> < ${target}. Jumping again.`, 
+                    jumpSize: step, comparisons: ops, currentIndex: checkIdx 
+                };
+
+                prev = step;
+                step += Math.floor(Math.sqrt(n));
+
+                if (prev >= n) {
+                    yield { 
+                        arr: stateArr, 
+                        explanation: `Reached end of array. Target <span class="text-red-500 font-bold">${target}</span> not found.`, 
+                        jumpSize: step, comparisons: ops, currentIndex: prev 
+                    };
+                    return;
+                }
+            }
+
+            // Found a block or end of array
+            ops++;
+            let checkIdx = Math.min(step, n) - 1;
+            let boundState = stateArr.map(a => ({...a}));
+            boundState[checkIdx].state = 'jump';
+            
+            yield { 
+                arr: boundState, 
+                explanation: `Checking index ${checkIdx}. Value <span class="font-bold">${arr[checkIdx]}</span> &ge; ${target}. Block identified.`, 
+                jumpSize: step, comparisons: ops, currentIndex: checkIdx 
+            };
+
+            // Highlight the Block
+            let blockState = stateArr.map((a, i) => {
+                if (i >= prev && i <= checkIdx) return { val: a.val, state: 'block' };
+                return a;
+            });
+
+            yield { 
+                arr: blockState, 
+                explanation: `Target may be between index <span class="text-blue-600 font-bold">${prev}</span> and <span class="text-blue-600 font-bold">${checkIdx}</span>.`, 
+                jumpSize: step, comparisons: ops, currentIndex: `${prev} - ${checkIdx}`
+            };
+
+            // 2. Linear Search Phase within the block
+            while (arr[prev] < target) {
+                ops++;
+                let linState = blockState.map(a => ({...a}));
+                linState[prev].state = 'compare';
+                
+                yield { 
+                    arr: linState, 
+                    explanation: `Performing linear search in block. Checking index ${prev}: <span class="font-bold">${arr[prev]}</span> < ${target}.`, 
+                    jumpSize: step, comparisons: ops, currentIndex: prev 
+                };
+
+                prev++;
+
+                if (prev === Math.min(step, n)) {
+                    yield { 
+                        arr: blockState, 
+                        explanation: `Reached end of block. Target <span class="text-red-500 font-bold">${target}</span> not found.`, 
+                        jumpSize: step, comparisons: ops, currentIndex: prev 
+                    };
+                    return;
+                }
+            }
+
+            // Final Comparison
+            ops++;
+            let finalState = blockState.map(a => ({...a}));
+            
+            if (arr[prev] === target) {
+                finalState[prev].state = 'found';
+                yield { 
+                    arr: finalState, 
+                    explanation: `Success! Target <span class="text-green-600 font-bold">${target}</span> found at index <span class="font-bold">${prev}</span>.`, 
+                    jumpSize: step, comparisons: ops, currentIndex: prev 
+                };
+            } else {
+                finalState[prev].state = 'compare'; // Show the one that caused it to stop
+                yield { 
+                    arr: finalState, 
+                    explanation: `Value at index ${prev} is <span class="font-bold">${arr[prev]}</span> > ${target}. Target <span class="text-red-500 font-bold">${target}</span> not found.`, 
+                    jumpSize: step, comparisons: ops, currentIndex: prev 
+                };
+            }
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { arr, explanation, jumpSize, comparisons, currentIndex } = state;
+
+            // Update Metrics & Explanation
+            stepExplEl.innerHTML = explanation;
+            metricJumpEl.innerText = jumpSize;
+            metricOpsEl.innerText = comparisons;
+            metricIdxEl.innerText = currentIndex;
+
+            // Render Array
+            arrayContainerEl.innerHTML = '';
+            
+            // Find max value to normalize heights slightly if desired, 
+            // but for jump search, uniform boxes often look cleaner. We'll use uniform boxes.
+            arr.forEach((item, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col items-center gap-2';
+
+                const box = document.createElement('div');
+                
+                // Base styles
+                let boxClasses = 'w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-lg text-sm sm:text-base font-bold mono block-transition shadow-sm border-2 ';
+                
+                // Apply State Colors
+                if (item.state === 'default') {
+                    boxClasses += 'bg-white border-slate-200 text-slate-700';
+                } else if (item.state === 'jump') {
+                    boxClasses += 'bg-purple-500 border-purple-600 text-white transform -translate-y-2 shadow-md';
+                } else if (item.state === 'block') {
+                    boxClasses += 'bg-blue-50 border-blue-400 text-blue-900 shadow-inner';
+                } else if (item.state === 'compare') {
+                    boxClasses += 'bg-yellow-400 border-yellow-500 text-yellow-900 transform scale-110 shadow-md z-10';
+                } else if (item.state === 'found') {
+                    boxClasses += 'bg-green-500 border-green-600 text-white transform scale-110 shadow-md shadow-green-200 z-10 animate-pulse';
+                }
+
+                box.className = boxClasses;
+                box.innerText = item.val;
+
+                const label = document.createElement('span');
+                label.className = 'text-xs font-medium text-slate-400 mono';
+                label.innerText = index;
+                
+                // Highlight label if it's the current index being evaluated
+                if (item.state !== 'default' && item.state !== 'block') {
+                    label.classList.add('text-slate-800', 'font-bold');
+                }
+
+                wrapper.appendChild(box);
+                wrapper.appendChild(label);
+                arrayContainerEl.appendChild(wrapper);
+            });
+            
+            // Auto scroll container if element is highlighted and out of view
+            const highlightedEl = document.querySelector('.transform');
+            if(highlightedEl) {
+                highlightedEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) {
+                // If inputs changed, reset first
+                resetVisualizer();
+            }
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                // Re-read inputs in case user edited them before hitting play
+                if(!stateGenerator) resetVisualizer();
+                
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-purple-600', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-purple-700', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                // If it's the very start, execute first step immediately
+                if(metricOpsEl.innerText === "0") {
+                    runNextStep().then(() => {
+                        playInterval = setTimeout(autoPlayLoop, currentSpeed);
+                    });
+                } else {
+                    autoPlayLoop();
+                }
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start Search`;
+            btnStart.classList.replace('bg-slate-600', 'bg-purple-600');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-purple-700');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', generateRandomSortedArray);
+            
+            btnReset.addEventListener('click', resetVisualizer);
+            
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                // Invert the slider logic: right = faster (lower ms delay), left = slower
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+
+            // Listen for input changes to invalidate current state
+            inputArrayEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+            inputTargetEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

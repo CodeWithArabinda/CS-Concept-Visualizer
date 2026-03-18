@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permutations Generator Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Transitions */
+        .smooth-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Active Array Styling */
+        .array-cell {
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            border-radius: 0.5rem;
+            border: 2px solid #cbd5e1;
+            background-color: white;
+            color: #334155;
+            transition: all 0.3s ease;
+        }
+        .array-cell.swapping {
+            background-color: #fef08a;
+            border-color: #eab308;
+            color: #854d0e;
+            transform: scale(1.1);
+            box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.4);
+            z-index: 10;
+        }
+        .array-cell.completed {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+            color: #166534;
+        }
+
+        /* Tree Node States */
+        .node-default { background-color: #ffffff; border-color: #cbd5e1; color: #64748b; }
+        .node-current { background-color: #fef08a; border-color: #eab308; color: #854d0e; box-shadow: 0 0 10px rgba(234, 179, 8, 0.5); transform: scale(1.1); z-index: 20; }
+        .node-explored { background-color: #f1f5f9; border-color: #94a3b8; color: #475569; }
+        .node-valid { background-color: #22c55e; border-color: #166534; color: #ffffff; box-shadow: 0 0 15px rgba(34, 197, 94, 0.5); transform: scale(1.1); z-index: 10; animation: pulse-green 1.5s infinite; }
+
+        /* Tree Edge States */
+        .edge-default { stroke: #cbd5e1; stroke-width: 2; }
+        .edge-active { stroke: #eab308; stroke-width: 4; }
+        .edge-explored { stroke: #94a3b8; stroke-width: 2; }
+        .edge-valid { stroke: #22c55e; stroke-width: 3; }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Permutations Generator
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Generate Setup
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm w-36 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start Algorithm
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-sm font-medium transition-colors border border-amber-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="50" max="1500" value="600" class="w-20 accent-amber-500" dir="rtl">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Fields -->
+            <div class="flex flex-col sm:flex-row gap-4 items-end bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="flex-grow w-full">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Elements to Permute (comma-separated, max 4)</label>
+                    <input type="text" id="input-array" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mono" value="A, B, C">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left/Center Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready to generate permutations.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[110px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Recursion Depth</div>
+                        <div class="text-xl font-bold text-amber-600 mono"><span id="metric-depth">0</span>/<span id="metric-max-depth">3</span></div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[110px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Permutations</div>
+                        <div class="text-xl font-bold text-green-600 mono"><span id="metric-perms">0</span>/<span id="metric-total-perms">6</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Array Visualization -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col items-center justify-center">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Current Array State</h3>
+                <div id="active-array-container" class="flex gap-3 relative">
+                    <!-- Array cells injected via JS -->
+                </div>
+            </div>
+
+            <!-- Tree Visualization Area -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative" style="height: 500px;">
+                
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 z-20 flex flex-col gap-2 text-xs font-medium bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="font-bold text-slate-500 uppercase tracking-wider mb-1 border-b pb-1">Legend</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full border border-amber-500 bg-yellow-200"></span> Active Branch / Swap</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full border border-green-700 bg-green-500"></span> Completed Permutation</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full border border-slate-400 bg-slate-100"></span> Explored Branch</div>
+                </div>
+
+                <!-- Tree Container (Scrollable) -->
+                <div class="w-full h-full overflow-auto custom-scrollbar relative bg-slate-50/50" id="tree-scroll-container">
+                    <div id="tree-canvas" class="relative min-h-[500px] pt-10">
+                        <!-- SVG for Edges -->
+                        <svg id="edges-svg" class="absolute inset-0 w-full h-full" style="pointer-events: none;">
+                            <!-- Lines injected via JS -->
+                        </svg>
+                        
+                        <!-- Nodes injected via JS -->
+                        <div id="nodes-container" class="absolute inset-0 w-full h-full pointer-events-none"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel & Permutations List -->
+        <aside class="lg:col-span-1 flex flex-col gap-6 h-fit sticky top-24">
+            
+            <!-- Found Permutations List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-72">
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex justify-between items-center border-b border-slate-100 pb-2">
+                    Generated Output
+                </h2>
+                
+                <div class="flex-grow overflow-y-auto custom-scrollbar space-y-2 pr-1" id="perms-list">
+                    <div class="text-sm text-slate-400 italic mt-4 text-center">Start algorithm to see results.</div>
+                </div>
+            </div>
+
+            <!-- Theory Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                    Algorithm Theory
+                </h2>
+                
+                <div class="space-y-4 text-sm text-slate-600">
+                    <div>
+                        <h3 class="font-bold text-slate-800">Recursive Swapping</h3>
+                        <p class="mt-1">Permutations are generated by fixing an element at the current index (depth) and recursively permuting the remaining elements.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-slate-800">The Backtracking Step</h3>
+                        <p class="mt-1">To ensure we don't permanently modify the array, we <strong>backtrack</strong> by swapping the elements back to their original positions after returning from the recursive call.</p>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 mt-4">
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-amber-800 font-semibold">Time Complexity</span>
+                                <span class="font-mono text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded">O(N &times; N!)</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-1">
+                                <span class="text-amber-800 font-semibold">Space Complexity</span>
+                                <span class="font-mono text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded">O(N)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        let baseArray = [];
+        
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 600; // ms
+
+        // Visual Data Structures
+        let precalcedRoot = null;
+        let globalLeafCounter = 0;
+        let treeNodes = [];
+        let treeEdges = [];
+        let nextNodeId = 0;
+        let permsFound = [];
+
+        // DOM Elements
+        const arrayContainerEl = document.getElementById('active-array-container');
+        const treeCanvasEl = document.getElementById('tree-canvas');
+        const scrollContainerEl = document.getElementById('tree-scroll-container');
+        const svgEl = document.getElementById('edges-svg');
+        const nodesContainerEl = document.getElementById('nodes-container');
+        const permsListEl = document.getElementById('perms-list');
+        
+        const stepExplEl = document.getElementById('step-explanation');
+        const metricDepthEl = document.getElementById('metric-depth');
+        const metricMaxDepthEl = document.getElementById('metric-max-depth');
+        const metricPermsEl = document.getElementById('metric-perms');
+        const metricTotalPermsEl = document.getElementById('metric-total-perms');
+        
+        const inputArrayEl = document.getElementById('input-array');
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // Layout Constants
+        const LEAF_SPACING = 120;
+        const VERTICAL_SPACING = 100;
+        const NODE_WIDTH = 70;
+        const NODE_HEIGHT = 32;
+
+        // --- Math Helpers ---
+        function factorial(n) {
+            if (n === 0 || n === 1) return 1;
+            return n * factorial(n - 1);
+        }
+
+        // --- Initialization & Setup ---
+        function init() {
+            setupVisualizer();
+            setupEventListeners();
+        }
+
+        function readInputs() {
+            let rawStr = inputArrayEl.value;
+            let arr = rawStr.split(',').map(s => s.trim()).filter(s => s !== '');
+            
+            if (arr.length === 0) {
+                alert("Please enter at least one element.");
+                return false;
+            }
+            if (arr.length > 4) {
+                alert("To keep the visualization graph manageable, a maximum of 4 elements is allowed.");
+                arr = arr.slice(0, 4);
+                inputArrayEl.value = arr.join(', ');
+            }
+            baseArray = arr;
+            return true;
+        }
+
+        function setupVisualizer() {
+            stopAutoPlay();
+            if (!readInputs()) return;
+
+            treeNodes = [];
+            treeEdges = [];
+            nextNodeId = 0;
+            permsFound = [];
+            
+            metricMaxDepthEl.innerText = baseArray.length;
+            metricTotalPermsEl.innerText = factorial(baseArray.length);
+            
+            // 1. Precalculate the tree coordinates
+            globalLeafCounter = 0;
+            precalcedRoot = precalculateTree([...baseArray], 0, baseArray.length - 1);
+            
+            // 2. Adjust Canvas Width/Height dynamically
+            const maxLeaves = factorial(baseArray.length);
+            const canvasWidth = Math.max(1000, maxLeaves * LEAF_SPACING + 100);
+            const canvasHeight = baseArray.length * VERTICAL_SPACING + 150;
+            
+            treeCanvasEl.style.minWidth = `${canvasWidth}px`;
+            treeCanvasEl.style.minHeight = `${canvasHeight}px`;
+            
+            // 3. Setup generator
+            stateGenerator = traverseAndAnimate(precalcedRoot, null, 0);
+            
+            renderState({
+                exp: `Ready. Target: generate all ${factorial(baseArray.length)} permutations of [${baseArray.join(', ')}].`,
+                activeNodeId: null,
+                currentArr: baseArray,
+                depth: 0,
+                swapIdx: null,
+                isCompleted: false
+            });
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start Algorithm`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+            
+            // Center Scroll initially
+            setTimeout(() => {
+                scrollContainerEl.scrollLeft = (canvasWidth - scrollContainerEl.clientWidth) / 2;
+            }, 10);
+        }
+
+        // --- Tree Pre-calculation ---
+        // We simulate the backtracking to build a shadow tree with X, Y coordinates
+        function precalculateTree(arr, l, r) {
+            let node = { arr: [...arr], l: l, children: [], swapMade: null };
+            
+            if (l === r) {
+                // Leaf
+                node.x = (globalLeafCounter++) * LEAF_SPACING + 50;
+                return node;
+            }
+            
+            for (let i = l; i <= r; i++) {
+                let nextArr = [...arr];
+                // Swap
+                let temp = nextArr[l];
+                nextArr[l] = nextArr[i];
+                nextArr[i] = temp;
+                
+                let child = precalculateTree(nextArr, l + 1, r);
+                child.swapMade = [l, i];
+                node.children.push(child);
+            }
+            
+            // Parent X is average of children X
+            node.x = node.children.reduce((sum, c) => sum + c.x, 0) / node.children.length;
+            return node;
+        }
+
+        function nextId() { return nextNodeId++; }
+
+        // --- Recursive Generator (Animation Driver) ---
+        function* traverseAndAnimate(node, parentId, depth) {
+            let nodeId = nextId();
+            
+            // Add Node to visualized graph
+            treeNodes.push({ 
+                id: nodeId, 
+                x: node.x, 
+                y: depth * VERTICAL_SPACING, 
+                arr: node.arr, 
+                state: 'current' 
+            });
+            
+            if (parentId !== null) {
+                treeEdges.push({ u: parentId, v: nodeId, state: 'active' });
+            }
+            
+            yield { 
+                exp: `Entering recursion at depth <span class="font-bold text-amber-600">${depth}</span>. Fixed prefix: [${node.arr.slice(0, depth).join(', ')}]`, 
+                activeNodeId: nodeId, 
+                currentArr: node.arr, 
+                depth: depth, 
+                swapIdx: null 
+            };
+
+            // Base Case
+            if (node.children.length === 0) {
+                treeNodes.find(n => n.id === nodeId).state = 'valid';
+                if (parentId !== null) treeEdges.find(e => e.v === nodeId).state = 'valid';
+                permsFound.push([...node.arr]);
+                
+                yield { 
+                    exp: `<span class="text-green-600 font-bold">Base case reached!</span> Generated permutation: [${node.arr.join(', ')}].`, 
+                    activeNodeId: nodeId, 
+                    currentArr: node.arr, 
+                    depth: depth, 
+                    swapIdx: null,
+                    isCompleted: true // highlights full array green
+                };
+                
+                treeNodes.find(n => n.id === nodeId).state = 'explored';
+                return;
+            }
+
+            // Recursive Steps
+            for (let child of node.children) {
+                let s = child.swapMade;
+                
+                if (s[0] !== s[1]) {
+                    yield { 
+                        exp: `Swapping positions <span class="font-bold">${s[0]}</span> and <span class="font-bold">${s[1]}</span> (Values: <span class="text-amber-600">${node.arr[s[0]]} &harr; ${node.arr[s[1]]}</span>).`, 
+                        activeNodeId: nodeId, 
+                        currentArr: node.arr, // Show pre-swap state but highlight
+                        depth: depth, 
+                        swapIdx: s 
+                    };
+                } else {
+                    yield { 
+                        exp: `Position ${s[0]} swaps with itself (Values: ${node.arr[s[0]]} remains).`, 
+                        activeNodeId: nodeId, 
+                        currentArr: node.arr, 
+                        depth: depth, 
+                        swapIdx: s 
+                    };
+                }
+                
+                // Recurse down
+                yield* traverseAndAnimate(child, nodeId, depth + 1);
+                
+                // Backtrack
+                treeNodes.find(n => n.id === nodeId).state = 'current'; // re-highlight parent
+                if (s[0] !== s[1]) {
+                    yield { 
+                        exp: `Backtracking: Reverting swap of positions <span class="font-bold">${s[0]}</span> and <span class="font-bold">${s[1]}</span>.`, 
+                        activeNodeId: nodeId, 
+                        currentArr: child.arr, // Show post-recursion state, right before swap back
+                        depth: depth, 
+                        swapIdx: s 
+                    };
+                }
+            }
+            
+            treeNodes.find(n => n.id === nodeId).state = 'explored';
+            if (parentId !== null) treeEdges.find(e => e.v === nodeId).state = 'explored';
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { exp, activeNodeId, currentArr, depth, swapIdx, isCompleted } = state;
+
+            // Update Metrics & Explanation
+            stepExplEl.innerHTML = exp;
+            metricDepthEl.innerText = depth;
+            metricPermsEl.innerText = permsFound.length;
+
+            renderActiveArray(currentArr, swapIdx, depth, isCompleted);
+            renderTree(activeNodeId);
+            renderPermsList();
+        }
+
+        function renderActiveArray(arr, swapIdx, depth, isCompleted) {
+            arrayContainerEl.innerHTML = '';
+            
+            // Draw connection arches if swapping (Visual flourish)
+            if (swapIdx && swapIdx[0] !== swapIdx[1]) {
+                const svgOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svgOverlay.setAttribute("class", "absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible");
+                svgOverlay.style.zIndex = "5";
+                
+                const cellWidth = 48; // 3rem
+                const gap = 12; // 0.75rem gap-3
+                const totalCellWidth = cellWidth + gap;
+                
+                // Calc centers relative to container
+                const x1 = (swapIdx[0] * totalCellWidth) + (cellWidth / 2);
+                const x2 = (swapIdx[1] * totalCellWidth) + (cellWidth / 2);
+                
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", `M ${x1} 0 Q ${(x1+x2)/2} -40 ${x2} 0`);
+                path.setAttribute("fill", "transparent");
+                path.setAttribute("stroke", "#eab308");
+                path.setAttribute("stroke-width", "3");
+                path.setAttribute("stroke-dasharray", "4,4");
+                
+                svgOverlay.appendChild(path);
+                arrayContainerEl.appendChild(svgOverlay);
+            }
+
+            arr.forEach((val, idx) => {
+                const cell = document.createElement('div');
+                cell.className = 'array-cell mono';
+                cell.innerText = val;
+                
+                if (isCompleted) {
+                    cell.classList.add('completed');
+                } else if (swapIdx && (idx === swapIdx[0] || idx === swapIdx[1])) {
+                    cell.classList.add('swapping');
+                } else if (idx < depth) {
+                    // Elements locked in place by recursion depth
+                    cell.style.backgroundColor = '#f1f5f9';
+                    cell.style.color = '#94a3b8';
+                    cell.style.borderColor = '#e2e8f0';
+                }
+                
+                arrayContainerEl.appendChild(cell);
+            });
+        }
+
+        function renderTree(activeNodeId) {
+            svgEl.innerHTML = '';
+            nodesContainerEl.innerHTML = '';
+
+            // Render Edges
+            treeEdges.forEach(edge => {
+                const uNode = treeNodes.find(n => n.id === edge.u);
+                const vNode = treeNodes.find(n => n.id === edge.v);
+
+                if (uNode && vNode) {
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", uNode.x);
+                    line.setAttribute("y1", uNode.y + (NODE_HEIGHT/2));
+                    line.setAttribute("x2", vNode.x);
+                    line.setAttribute("y2", vNode.y - (NODE_HEIGHT/2));
+                    line.setAttribute("class", `smooth-transition edge-line edge-${edge.state}`);
+                    svgEl.appendChild(line);
+                }
+            });
+
+            // Render Nodes
+            treeNodes.forEach(node => {
+                const el = document.createElement('div');
+                
+                let baseClasses = `absolute flex items-center justify-center rounded-full font-bold border-2 smooth-transition tracking-widest text-xs mono `;
+                baseClasses += `node-${node.state}`;
+
+                el.className = baseClasses;
+                
+                el.style.width = `${NODE_WIDTH}px`;
+                el.style.height = `${NODE_HEIGHT}px`;
+                el.style.left = `${node.x - (NODE_WIDTH/2)}px`;
+                el.style.top = `${node.y - (NODE_HEIGHT/2)}px`;
+                
+                el.innerText = `[${node.arr.join('')}]`;
+
+                nodesContainerEl.appendChild(el);
+            });
+
+            // Auto-scroll logic to keep active node in view horizontally
+            if (activeNodeId !== null) {
+                const activeNode = treeNodes.find(n => n.id === activeNodeId);
+                if (activeNode) {
+                    const scrollContainer = scrollContainerEl;
+                    const containerWidth = scrollContainer.clientWidth;
+                    const targetScrollLeft = activeNode.x - (containerWidth / 2);
+
+                    scrollContainer.scrollTo({
+                        left: targetScrollLeft,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+        }
+
+        function renderPermsList() {
+            if (permsFound.length === 0) {
+                permsListEl.innerHTML = '<div class="text-sm text-slate-400 italic mt-4 text-center">Start algorithm to see results.</div>';
+                return;
+            }
+
+            permsListEl.innerHTML = '';
+            permsFound.forEach((perm, index) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-3 p-2 rounded bg-green-50 border border-green-200 text-green-900';
+                
+                item.innerHTML = `
+                    <div class="w-6 h-6 rounded-full bg-green-200 flex items-center justify-center text-xs font-bold text-green-800">${index + 1}</div>
+                    <div class="mono font-bold tracking-widest text-base">[${perm.join(', ')}]</div>
+                `;
+                
+                permsListEl.appendChild(item);
+            });
+            
+            permsListEl.scrollTop = permsListEl.scrollHeight;
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) setupVisualizer();
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                
+                if (treeNodes.length > 0) {
+                    treeNodes[0].state = 'explored';
+                    renderState({
+                        exp: `<strong>Algorithm Complete!</strong> Successfully generated all ${permsFound.length} permutations.`,
+                        activeNodeId: null,
+                        currentArr: baseArray,
+                        depth: 0,
+                        swapIdx: null,
+                        isCompleted: false
+                    });
+                }
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                if(!stateGenerator) setupVisualizer();
+                
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-amber-500', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-amber-600', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                autoPlayLoop();
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start Algorithm`;
+            btnStart.classList.replace('bg-slate-600', 'bg-amber-500');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-amber-600');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnReset.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                // Invert logic: right slider position = less delay = faster
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+
+            inputArrayEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

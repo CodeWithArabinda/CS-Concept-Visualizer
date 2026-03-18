@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topological Sort Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions */
+        .node-circle {
+            transition: fill 0.4s ease, stroke 0.4s ease, stroke-width 0.4s ease, opacity 0.4s ease;
+        }
+        .node-text {
+            transition: opacity 0.4s ease, fill 0.4s ease;
+        }
+        .edge-line {
+            transition: stroke 0.4s ease, stroke-width 0.4s ease, opacity 0.4s ease;
+        }
+        .table-row-anim {
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Queue item animation */
+        .queue-item {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Topological Sort Visualizer</h1>
+        <p class="text-slate-500">Visualizing dependency resolution in Directed Acyclic Graphs (DAGs)</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 items-center justify-center">
+            <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="generateGraph()">Generate Random DAG</button>
+            <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm" onclick="startSort()">Start Sort</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="200" max="3000" value="1200" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Graph Area (Left/Center) -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center flex justify-between px-6 items-center">
+                <span>Directed Acyclic Graph (DAG)</span>
+                <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">Edges point to dependencies</span>
+            </div>
+            <div class="relative w-full h-[450px] bg-slate-50/50 flex items-center justify-center">
+                <svg id="graph-svg" class="w-full h-full" viewBox="0 0 800 500">
+                    <defs>
+                        <!-- Arrowhead markers for different edge states -->
+                        <marker id="arrowhead-normal" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e1" />
+                        </marker>
+                        <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="24" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
+                        </marker>
+                    </defs>
+                    <!-- Graph generated dynamically -->
+                </svg>
+            </div>
+            <!-- Explanation Panel -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                Generate a DAG and click "Start Sort" to begin topological ordering.
+            </div>
+        </div>
+
+        <!-- Right Panel: In-Degree Table & Metrics -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- In-Degree Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-grow">
+                <div class="p-3 bg-indigo-50 border-b border-indigo-100 font-semibold text-indigo-800 text-center flex justify-between items-center">
+                    <span>In-Degree Table</span>
+                    <span class="text-xs bg-indigo-200 text-indigo-800 px-2 py-1 rounded-full">Incoming Edges</span>
+                </div>
+                
+                <div class="flex-grow p-4 bg-slate-50/50 overflow-y-auto max-h-[250px]">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-100 border-b border-slate-200 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-2 text-center">Node</th>
+                                <th class="px-4 py-2 text-center">In-Degree</th>
+                                <th class="px-4 py-2 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="indegree-tbody" class="divide-y divide-slate-100">
+                            <!-- Table rows injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-3 pb-2 border-b-2 border-slate-100 text-slate-800">Sorting Metrics</h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Processed</div>
+                        <div class="text-2xl font-bold text-green-600 mt-1" id="metric-processed">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Remaining</div>
+                        <div class="text-2xl font-bold text-slate-600 mt-1" id="metric-remaining">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider mb-2">Topological Order</div>
+                    <div class="font-mono font-bold text-slate-800 flex flex-wrap gap-1 min-h-[28px]" id="metric-order">
+                        <span class="text-slate-400 font-normal italic text-sm">Empty</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Legend and Educational Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Legend -->
+        <div class="lg:col-span-2 flex flex-wrap gap-5 items-center justify-center p-5 bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-yellow-300 border-2 border-yellow-600 shadow-sm"></div>
+                <span>Ready (0 In-Degree)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-green-100 border-2 border-green-600 shadow-sm opacity-60"></div>
+                <span>Removed / Processed</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-white border-2 border-slate-300 shadow-sm"></div>
+                <span>Waiting on dependencies</span>
+            </div>
+        </div>
+
+        <!-- Educational Panel -->
+        <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600 leading-relaxed">
+            <h2 class="text-base font-bold mb-2 text-slate-800">Kahn's Algorithm</h2>
+            <p class="mb-2">
+                Topological Sorting provides a linear ordering of vertices such that for every directed edge <em>U &rarr; V</em>, vertex <em>U</em> comes before <em>V</em> in the ordering.
+            </p>
+            <p>
+                <strong>Process:</strong> It repeatedly finds a node with zero incoming edges (in-degree = 0), "removes" it from the graph, and updates the incoming edges of its neighbors until all nodes are processed.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global State ---
+    let graph = { nodes: [], edges: [] };
+    
+    let sortGenerator = null;
+    let isPlaying = false;
+    let searchTimeout = null;
+    let animationSpeed = 1200;
+    
+    // DOM Elements
+    const graphSvg = document.getElementById('graph-svg');
+    const tbody = document.getElementById('indegree-tbody');
+    const explanationEl = document.getElementById('step-explanation');
+    const metricProcessed = document.getElementById('metric-processed');
+    const metricRemaining = document.getElementById('metric-remaining');
+    const metricOrder = document.getElementById('metric-order');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateGraph();
+        updateSpeed();
+    }
+
+    // --- Graph Generation (Directed Acyclic Graph) ---
+    function generateGraph() {
+        if (isPlaying) return;
+        
+        const numNodes = 8;
+        const width = 800;
+        const height = 450;
+        const paddingX = 80;
+        const paddingY = 60;
+        
+        graph.nodes = [];
+        graph.edges = [];
+        
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        
+        // Strategy for DAG: Sort nodes by X-coordinate to guarantee directionality left-to-right
+        for (let i = 0; i < numNodes; i++) {
+            let x, y;
+            let collision = true;
+            let attempts = 0;
+            
+            while (collision && attempts < 100) {
+                // Ensure spreading along x-axis roughly based on index to make visualization clearer
+                const sectionW = (width - 2 * paddingX) / numNodes;
+                x = paddingX + (i * sectionW) + (Math.random() * sectionW * 0.5);
+                y = paddingY + Math.random() * (height - paddingY * 2);
+                
+                collision = false;
+                for (let node of graph.nodes) {
+                    let dx = node.x - x;
+                    let dy = node.y - y;
+                    if (Math.sqrt(dx*dx + dy*dy) < 80) { 
+                        collision = true;
+                        break;
+                    }
+                }
+                attempts++;
+            }
+            graph.nodes.push({ id: letters[i], x: x, y: y, originalIndex: i });
+        }
+        
+        // Generate Edges strictly left-to-right (lower originalIndex to higher)
+        // This naturally guarantees it's Acyclic
+        for (let i = 0; i < numNodes; i++) {
+            // Forward connections
+            const numEdges = Math.floor(Math.random() * 2) + 1; // 1 to 2 forward edges
+            for(let e=0; e<numEdges; e++) {
+                // Pick a target that is mathematically guaranteed to be to the "right"
+                if (i + 1 < numNodes) {
+                    const targetIdx = i + 1 + Math.floor(Math.random() * (numNodes - i - 1));
+                    
+                    // Check duplicate
+                    const exists = graph.edges.some(edge => edge.source === graph.nodes[i].id && edge.target === graph.nodes[targetIdx].id);
+                    
+                    if (!exists) {
+                        graph.edges.push({ source: graph.nodes[i].id, target: graph.nodes[targetIdx].id });
+                    }
+                }
+            }
+        }
+        
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- Compute Initial In-Degrees ---
+    function computeInitialInDegrees() {
+        let inDegree = {};
+        graph.nodes.forEach(n => inDegree[n.id] = 0);
+        graph.edges.forEach(e => inDegree[e.target]++);
+        return inDegree;
+    }
+
+    // --- UI Rendering ---
+    function renderState(state) {
+        // Render Explanation text
+        explanationEl.textContent = state.msg;
+        
+        // Color explanations
+        if (state.phase === 'ready') {
+            explanationEl.className = "p-4 bg-yellow-50 border-t border-yellow-200 border-l-4 border-l-yellow-400 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-yellow-800";
+        } else if (state.phase === 'remove') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else if (state.phase === 'update') {
+            explanationEl.className = "p-4 bg-orange-50 border-t border-orange-200 border-l-4 border-l-orange-400 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-orange-800";
+        } else {
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Update Metrics
+        metricProcessed.textContent = state.processed.length;
+        metricRemaining.textContent = graph.nodes.length - state.processed.length;
+        
+        if (state.processed.length === 0) {
+            metricOrder.innerHTML = '<span class="text-slate-400 font-normal italic text-sm">Empty</span>';
+        } else {
+            metricOrder.innerHTML = state.processed.map(id => 
+                `<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-300 shadow-sm">${id}</span>`
+            ).join('<span class="text-slate-400 mt-1">→</span>');
+        }
+
+        // Render In-Degree Table
+        tbody.innerHTML = '';
+        graph.nodes.forEach(node => {
+            const id = node.id;
+            const deg = state.inDegrees[id];
+            const isProcessed = state.processed.includes(id);
+            const isReady = state.queue.includes(id) || state.current === id;
+            const isUpdating = state.updatedNeighbors && state.updatedNeighbors.includes(id);
+            
+            let bgClass = "bg-white";
+            let statusText = "<span class='text-slate-500'>Waiting</span>";
+            let degClass = "font-bold text-slate-700";
+            
+            if (isProcessed) {
+                bgClass = "bg-slate-50 text-slate-400";
+                statusText = "<span class='text-green-600 font-semibold'>Removed</span>";
+                degClass = "text-slate-400";
+            } else if (isReady) {
+                bgClass = "bg-yellow-50";
+                statusText = "<span class='text-yellow-700 font-bold'>Ready</span>";
+                degClass = "font-bold text-yellow-700";
+            } else if (isUpdating) {
+                bgClass = "bg-orange-50"; // Highlight updates
+                degClass = "font-bold text-orange-600";
+            }
+
+            const tr = document.createElement('tr');
+            tr.className = `border-b border-slate-100 table-row-anim ${bgClass}`;
+            tr.innerHTML = `
+                <td class="px-4 py-2 text-center font-bold">${id}</td>
+                <td class="px-4 py-2 text-center ${degClass}">${deg !== undefined ? deg : '-'}</td>
+                <td class="px-4 py-2 text-center text-xs">${statusText}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Render Graph (SVG)
+        // Keep defs
+        const defs = graphSvg.querySelector('defs').outerHTML;
+        graphSvg.innerHTML = defs;
+        
+        // Draw Edges First
+        graph.edges.forEach(edge => {
+            const sNode = graph.nodes.find(n => n.id === edge.source);
+            const tNode = graph.nodes.find(n => n.id === edge.target);
+            
+            const isSourceRemoved = state.processed.includes(edge.source);
+            const isTargetRemoved = state.processed.includes(edge.target);
+            
+            // Skip fully processed edges visually, or fade them
+            if (isSourceRemoved) return; // Edge conceptually doesn't exist anymore
+
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", sNode.x);
+            line.setAttribute("y1", sNode.y);
+            line.setAttribute("x2", tNode.x);
+            line.setAttribute("y2", tNode.y);
+            
+            let isActivelyUpdating = state.phase === 'update' && state.current === edge.source;
+            
+            if (isActivelyUpdating) {
+                line.setAttribute("stroke", "#f59e0b"); // Amber
+                line.setAttribute("stroke-width", "3");
+                line.setAttribute("marker-end", "url(#arrowhead-active)");
+            } else {
+                line.setAttribute("stroke", "#cbd5e1"); // Slate 300
+                line.setAttribute("stroke-width", "2");
+                line.setAttribute("marker-end", "url(#arrowhead-normal)");
+            }
+            
+            line.classList.add("edge-line");
+            graphSvg.appendChild(line);
+        });
+
+        // Draw Nodes
+        graph.nodes.forEach(node => {
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            circle.setAttribute("r", "20");
+            circle.classList.add("node-circle");
+            
+            let fill = "#ffffff";
+            let stroke = "#cbd5e1";
+            let strokeWidth = "2";
+            let textColor = "#475569";
+            let opacity = "1";
+
+            const isProcessed = state.processed.includes(node.id);
+            const isReady = state.queue.includes(node.id) || state.current === node.id;
+            
+            if (isProcessed) {
+                // Removed / Processed Node
+                fill = "#dcfce7"; // Green 100
+                stroke = "#16a34a"; // Green 600
+                opacity = "0.4"; // Fade out
+                textColor = "#166534";
+            } else if (isReady) {
+                // Ready Node (In Queue / Current)
+                fill = "#fde047"; // Yellow 300
+                stroke = "#ca8a04"; // Yellow 600
+                strokeWidth = "3";
+                textColor = "#713f12";
+                
+                // Extra highlight if it's the exact one being removed/processed right now
+                if (state.current === node.id && state.phase === 'remove') {
+                    fill = "#bbf7d0"; // Light green for transition
+                    stroke = "#16a34a";
+                }
+            }
+
+            circle.setAttribute("fill", fill);
+            circle.setAttribute("stroke", stroke);
+            circle.setAttribute("stroke-width", strokeWidth);
+            circle.setAttribute("opacity", opacity);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", node.x);
+            text.setAttribute("y", node.y);
+            text.setAttribute("dy", "0.35em");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("fill", textColor);
+            text.setAttribute("font-weight", "bold");
+            text.setAttribute("font-family", "sans-serif");
+            text.setAttribute("opacity", opacity);
+            text.textContent = node.id;
+            text.classList.add("node-text");
+
+            group.appendChild(circle);
+            group.appendChild(text);
+            graphSvg.appendChild(group);
+        });
+    }
+
+    // --- Kahn's Algorithm Generator ---
+    function* getTopoSortSteps(graphData) {
+        let inDegrees = computeInitialInDegrees();
+        let queue = [];
+        let processed = [];
+
+        // 1. Init: Find all nodes with 0 in-degree
+        for (let node in inDegrees) {
+            if (inDegrees[node] === 0) {
+                queue.push(node);
+            }
+        }
+
+        yield { 
+            phase: 'init', inDegrees: {...inDegrees}, queue: [...queue], processed: [...processed], 
+            current: null, updatedNeighbors: [],
+            msg: `Calculated initial in-degrees. Added nodes with 0 in-degree to the ready queue: [${queue.join(', ')}]` 
+        };
+
+        // 2. Loop until queue is empty
+        while(queue.length > 0) {
+            
+            let current = queue[0]; // Peek front
+            
+            yield { 
+                phase: 'ready', inDegrees: {...inDegrees}, queue: [...queue], processed: [...processed], 
+                current: current, updatedNeighbors: [],
+                msg: `Node ${current} has zero in-degree. It is ready to be processed.` 
+            };
+
+            // Remove from queue, add to processed
+            queue.shift();
+            processed.push(current);
+
+            yield { 
+                phase: 'remove', inDegrees: {...inDegrees}, queue: [...queue], processed: [...processed], 
+                current: current, updatedNeighbors: [],
+                msg: `Removing ${current} from graph and appending it to Topological Order.` 
+            };
+
+            // Find neighbors and decrease their in-degrees
+            let neighbors = graphData.edges
+                .filter(e => e.source === current)
+                .map(e => e.target);
+
+            if (neighbors.length > 0) {
+                let newlyReady = [];
+                for (let n of neighbors) {
+                    inDegrees[n]--;
+                    if (inDegrees[n] === 0) {
+                        queue.push(n);
+                        newlyReady.push(n);
+                    }
+                }
+
+                yield { 
+                    phase: 'update', inDegrees: {...inDegrees}, queue: [...queue], processed: [...processed], 
+                    current: current, updatedNeighbors: neighbors,
+                    msg: `Decremented in-degrees of ${current}'s neighbors. ` + 
+                         (newlyReady.length > 0 ? `Nodes [${newlyReady.join(', ')}] reached 0 and are now ready.` : `No new nodes are ready yet.`)
+                };
+            }
+        }
+
+        // Check if graph was completely processed (Cycle detection, though our gen prevents cycles)
+        if (processed.length !== graphData.nodes.length) {
+            yield { 
+                phase: 'error', inDegrees: {...inDegrees}, queue: [...queue], processed: [...processed], 
+                current: null, updatedNeighbors: [],
+                msg: `Algorithm stopped. Cycle detected: Not all nodes could be resolved!` 
+            };
+        } else {
+            yield { 
+                phase: 'done', inDegrees: {...inDegrees}, queue: [...queue], processed: [...processed], 
+                current: null, updatedNeighbors: [],
+                msg: `Topological Sort complete! All dependencies have been successfully ordered.` 
+            };
+        }
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!sortGenerator) return;
+
+        const result = sortGenerator.next();
+        
+        if (result.done) {
+            finishSort();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            searchTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startSort() {
+        if (!sortGenerator) {
+            sortGenerator = getTopoSortSteps(graph);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseSort() {
+        isPlaying = false;
+        clearTimeout(searchTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseSort();
+        if (!sortGenerator) {
+            sortGenerator = getTopoSortSteps(graph);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseSort();
+        sortGenerator = null;
+        
+        const initialInDegrees = computeInitialInDegrees();
+        
+        renderState({
+            phase: 'idle',
+            msg: `DAG generated. Click "Start Sort" to begin resolving dependencies.`,
+            inDegrees: initialInDegrees,
+            queue: [],
+            processed: [],
+            current: null,
+            updatedNeighbors: []
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishSort() {
+        isPlaying = false;
+        sortGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = sortGenerator !== null;
+        
+        btnRandom.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseSort;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-amber-500 text-white hover:bg-amber-600 w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start Sort";
+            btnStart.onclick = startSort;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 w-32 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("Topological Sort complete") || explanationEl.textContent.includes("Cycle detected");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

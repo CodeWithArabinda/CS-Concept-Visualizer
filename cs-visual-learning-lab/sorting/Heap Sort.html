@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heap Sort Visualizer</title>
+    <style>
+        /* CSS Variables for consistent theming */
+        :root {
+            --bg-color: #f8fafc;
+            --panel-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            
+            /* Algorithm Colors requested in prompt */
+            --color-default: #cbd5e1; /* Unsorted/Normal */
+            --color-build: #facc15;   /* Yellow: Heap building / Comparing */
+            --color-root: #c084fc;    /* Purple: Current root */
+            --color-swap: #f87171;    /* Red: Swapping */
+            --color-sorted: #4ade80;  /* Green: Sorted element */
+            
+            --btn-primary: #3b82f6;
+            --btn-primary-hover: #2563eb;
+            --btn-secondary: #e2e8f0;
+            --btn-secondary-hover: #cbd5e1;
+            --btn-disabled: #f1f5f9;
+            --btn-disabled-text: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 24px;
+        }
+
+        /* --- Header & Controls --- */
+        header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: var(--text-main);
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+        }
+
+        .controls-panel {
+            grid-column: 1 / -1;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: var(--btn-secondary);
+            color: var(--text-main);
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--btn-secondary-hover);
+        }
+
+        button.primary {
+            background-color: var(--btn-primary);
+            color: white;
+        }
+
+        button.primary:hover:not(:disabled) {
+            background-color: var(--btn-primary-hover);
+        }
+
+        button:disabled {
+            background-color: var(--btn-disabled);
+            color: var(--btn-disabled-text);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        /* --- Main Visualization Area --- */
+        .visualization-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .visualization-card {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        /* Tree View */
+        .tree-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            border-bottom: 2px dashed var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        #tree-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #tree-nodes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .tree-node {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--color-default);
+            color: #000;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: translate(-50%, -50%);
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            font-size: 1rem;
+        }
+
+        /* Array Bars View */
+        .bars-container {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 8px;
+            height: 160px;
+            width: 100%;
+        }
+
+        .bar-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 100%;
+            flex: 1;
+            max-width: 40px;
+        }
+
+        .bar {
+            width: 100%;
+            background-color: var(--color-default);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s ease, background-color 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 5px;
+            color: #000;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .step-explanation {
+            padding: 16px;
+            background-color: #f1f5f9;
+            border-left: 4px solid var(--btn-primary);
+            border-radius: 4px 8px 8px 4px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            min-height: 60px;
+        }
+
+        /* --- Legend --- */
+        .color-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            padding: 15px;
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        /* --- Sidebar / Educational Panel --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .panel h2 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .metric-card {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--btn-primary);
+            margin-top: 4px;
+        }
+
+        .concept-text {
+            margin-bottom: 16px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .complexity-list {
+            list-style: none;
+        }
+
+        .complexity-list li {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .badge {
+            background-color: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 960px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Heap Sort Visualizer</h1>
+    </header>
+
+    <!-- Controls -->
+    <div class="controls-panel">
+        <button id="btn-random" onclick="generateRandomArray()">Generate Random Array</button>
+        <button id="btn-build" class="primary" onclick="buildHeapOnly()">Build Heap</button>
+        <button id="btn-start" class="primary" onclick="startSort()">Start Sort</button>
+        <button id="btn-next" onclick="nextStep()" disabled>Next Step</button>
+        <button id="btn-reset" onclick="resetVisualizer()">Reset</button>
+
+        <div class="speed-control">
+            <label for="speed-slider">Speed:</label>
+            <input type="range" id="speed-slider" min="50" max="1500" value="600" dir="rtl" oninput="updateSpeed()">
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="visualization-area">
+        <div class="visualization-card">
+            <!-- Tree View -->
+            <div class="tree-container" id="tree-container">
+                <svg id="tree-svg"></svg>
+                <div id="tree-nodes"></div>
+            </div>
+
+            <!-- Array View -->
+            <div class="bars-container" id="bars-container">
+                <!-- Bars generated here -->
+            </div>
+
+            <div class="step-explanation" id="step-explanation">
+                Click "Build Heap" or "Start Sort" to begin.
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="color-legend">
+            <div class="legend-item">
+                <div class="color-box" style="background-color: var(--color-build);"></div>
+                <span>Heap Building / Compare</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: var(--color-root);"></div>
+                <span>Current Root</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: var(--color-swap);"></div>
+                <span>Swapping</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: var(--color-sorted);"></div>
+                <span>Sorted</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sidebar Educational Panel -->
+    <aside class="sidebar">
+        <!-- Algorithm Metrics -->
+        <div class="panel">
+            <h2>Algorithm Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card" style="grid-column: 1 / -1;">
+                    <div>Heap Size</div>
+                    <div class="metric-value" id="metric-heapsize">0</div>
+                </div>
+                <div class="metric-card">
+                    <div>Comparisons</div>
+                    <div class="metric-value" id="metric-comps">0</div>
+                </div>
+                <div class="metric-card">
+                    <div>Swaps</div>
+                    <div class="metric-value" id="metric-swaps">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Info -->
+        <div class="panel">
+            <h2>Educational Panel</h2>
+            <p class="concept-text">
+                <strong>Heap Sort</strong> converts the array into a <em>Max Heap</em> (a complete binary tree where every parent is greater than its children).
+            </p>
+            <p class="concept-text">
+                It then repeatedly extracts the maximum element (the root), swaps it with the last element of the heap, and runs <em>Heapify</em> to restore the heap property for the remaining elements.
+            </p>
+            <ul class="complexity-list">
+                <li>
+                    <span>Time Complexity</span>
+                    <span class="badge">O(n log n)</span>
+                </li>
+                <li>
+                    <span>Space Complexity</span>
+                    <span class="badge">O(1)</span>
+                </li>
+            </ul>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // --- Global State ---
+    let originalArray = [];
+    let currentState = null;
+    let sortGenerator = null;
+    let isPlaying = false;
+    let stopAfterBuild = false;
+    let sortTimeout = null;
+    let animationSpeed = 600;
+    
+    // DOM Elements
+    const treeContainer = document.getElementById('tree-container');
+    const treeSvg = document.getElementById('tree-svg');
+    const treeNodesContainer = document.getElementById('tree-nodes');
+    const barsContainer = document.getElementById('bars-container');
+    
+    const explanationEl = document.getElementById('step-explanation');
+    const metricHeapSize = document.getElementById('metric-heapsize');
+    const metricComps = document.getElementById('metric-comps');
+    const metricSwaps = document.getElementById('metric-swaps');
+    
+    // Buttons
+    const btnBuild = document.getElementById('btn-build');
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnRandom = document.getElementById('btn-random');
+    
+    // --- Initialization ---
+    function init() {
+        generateRandomArray();
+        updateSpeed();
+        window.addEventListener('resize', () => {
+            if (currentState) renderState(currentState);
+        });
+    }
+
+    function generateRandomArray() {
+        if (isPlaying) return;
+        // Generate array of 10 to 12 elements for a nice 4-level tree
+        const numElements = Math.floor(Math.random() * 3) + 10;
+        originalArray = Array.from({length: numElements}, () => Math.floor(Math.random() * 90) + 10);
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- Color Logic ---
+    function getColor(index, state) {
+        if (!state) return 'var(--color-default)';
+
+        // Sorted elements (outside the heap)
+        if (state.heapSize !== undefined && index >= state.heapSize && state.action !== 'init' && state.action !== 'build_info') {
+            return 'var(--color-sorted)';
+        }
+
+        // Action colors
+        if (state.action === 'swap' || state.action === 'swapped') {
+            if (state.swapCoords && state.swapCoords.includes(index)) return 'var(--color-swap)';
+        }
+        
+        if (state.root === index) return 'var(--color-root)';
+        
+        if (state.active && state.active.includes(index)) {
+            return 'var(--color-build)'; // Used for comparing or heapifying
+        }
+        
+        return 'var(--color-default)';
+    }
+
+    // --- Rendering ---
+    function renderState(state) {
+        currentState = state;
+        const arr = state.array;
+        const n = arr.length;
+
+        // Metrics & Explanations
+        metricHeapSize.textContent = state.heapSize;
+        metricComps.textContent = state.comps;
+        metricSwaps.textContent = state.swaps;
+        explanationEl.textContent = state.msg;
+
+        // --- Render Tree View ---
+        treeSvg.innerHTML = '';
+        treeNodesContainer.innerHTML = '';
+
+        const maxLevels = Math.floor(Math.log2(n)) + 1;
+        const containerW = treeContainer.clientWidth;
+        const containerH = treeContainer.clientHeight;
+        const levelHeight = containerH / (maxLevels + 0.5);
+
+        let nodeCoords = [];
+
+        // Calculate coordinates for all nodes
+        for (let i = 0; i < n; i++) {
+            // Only calculate and display nodes currently in the heap!
+            if (i >= state.heapSize) {
+                nodeCoords.push(null);
+                continue;
+            }
+
+            const level = Math.floor(Math.log2(i + 1));
+            const nodesInLevel = Math.pow(2, level);
+            const offset = i - (nodesInLevel - 1);
+            
+            const x = (containerW / nodesInLevel) * (offset + 0.5);
+            const y = (level + 0.8) * levelHeight;
+            nodeCoords.push({ x, y });
+        }
+
+        // Draw Lines (SVG)
+        for (let i = 0; i < state.heapSize; i++) {
+            if (!nodeCoords[i]) continue;
+            
+            const left = 2 * i + 1;
+            const right = 2 * i + 2;
+
+            if (left < state.heapSize && nodeCoords[left]) {
+                drawLine(nodeCoords[i].x, nodeCoords[i].y, nodeCoords[left].x, nodeCoords[left].y);
+            }
+            if (right < state.heapSize && nodeCoords[right]) {
+                drawLine(nodeCoords[i].x, nodeCoords[i].y, nodeCoords[right].x, nodeCoords[right].y);
+            }
+        }
+
+        // Draw Nodes (HTML)
+        for (let i = 0; i < state.heapSize; i++) {
+            if (!nodeCoords[i]) continue;
+            const node = document.createElement('div');
+            node.className = 'tree-node';
+            node.style.left = `${nodeCoords[i].x}px`;
+            node.style.top = `${nodeCoords[i].y}px`;
+            node.style.backgroundColor = getColor(i, state);
+            node.textContent = arr[i];
+            treeNodesContainer.appendChild(node);
+        }
+
+        // --- Render Array Bars View ---
+        barsContainer.innerHTML = '';
+        const maxVal = Math.max(...originalArray, 100);
+
+        for (let i = 0; i < n; i++) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'bar-wrapper';
+
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            
+            const heightPct = Math.max((arr[i] / maxVal) * 100, 10);
+            bar.style.height = `${heightPct}%`;
+            bar.textContent = arr[i];
+            bar.style.backgroundColor = getColor(i, state);
+
+            wrapper.appendChild(bar);
+            barsContainer.appendChild(wrapper);
+        }
+    }
+
+    function drawLine(x1, y1, x2, y2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', 'var(--border-color)');
+        line.setAttribute('stroke-width', '2');
+        treeSvg.appendChild(line);
+    }
+
+    // --- Heap Sort Algorithm Generator ---
+    function* getHeapSortSteps(initialArray) {
+        let arr = [...initialArray];
+        let n = arr.length;
+        let comps = 0;
+        let swaps = 0;
+
+        yield { action: 'init', array: [...arr], heapSize: n, msg: "Initial array. We need to build a Max Heap first.", comps, swaps, active: [] };
+
+        // Phase 1: Build Max Heap
+        yield { action: 'build_info', array: [...arr], heapSize: n, msg: "Phase 1: Building the Max Heap bottom-up.", comps, swaps, active: [] };
+        
+        for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+            yield* heapify(arr, n, i, true);
+        }
+
+        yield { action: 'heap_built', array: [...arr], heapSize: n, msg: "Max Heap built successfully! Parent nodes are now larger than children.", comps, swaps, active: [] };
+
+        // Phase 2: Extract elements
+        for (let i = n - 1; i > 0; i--) {
+            yield { action: 'root', array: [...arr], heapSize: i + 1, msg: `Phase 2: Current max root is ${arr[0]}. Swapping with last element of heap (${arr[i]}).`, comps, swaps, root: 0, active: [i] };
+            
+            swaps++;
+            [arr[0], arr[i]] = [arr[i], arr[0]];
+            
+            yield { action: 'swap', array: [...arr], heapSize: i + 1, msg: `Swapping ${arr[0]} and ${arr[i]}.`, comps, swaps, active: [], swapCoords: [0, i] };
+            
+            yield { action: 'sorted', array: [...arr], heapSize: i, msg: `Element ${arr[i]} is placed in its final sorted position. Heap size reduced to ${i}.`, comps, swaps, active: [] };
+
+            // Restore heap property
+            if (i > 0) {
+                yield { action: 'info', array: [...arr], heapSize: i, msg: `Heapifying the new root ${arr[0]} to restore Max Heap property.`, comps, swaps, root: 0 };
+                yield* heapify(arr, i, 0, false);
+            }
+        }
+        
+        yield { action: 'done', array: [...arr], heapSize: 0, msg: "Heap Sort complete! The array is fully sorted.", comps, swaps, active: [] };
+
+        // Internal Heapify Generator
+        function* heapify(arr, size, idx, isBuilding) {
+            let largest = idx;
+            let left = 2 * idx + 1;
+            let right = 2 * idx + 2;
+
+            yield { action: isBuilding ? 'build' : 'heapify', array: [...arr], heapSize: size, msg: `Examining node at index ${idx} (value ${arr[idx]}).`, comps, swaps, root: idx, active: [idx] };
+
+            if (left < size) {
+                comps++;
+                yield { action: 'compare', array: [...arr], heapSize: size, msg: `Comparing ${arr[largest]} with left child ${arr[left]}.`, comps, swaps, root: idx, active: [largest, left] };
+                if (arr[left] > arr[largest]) {
+                    largest = left;
+                }
+            }
+
+            if (right < size) {
+                comps++;
+                yield { action: 'compare', array: [...arr], heapSize: size, msg: `Comparing ${arr[largest]} with right child ${arr[right]}.`, comps, swaps, root: idx, active: [largest, right] };
+                if (arr[right] > arr[largest]) {
+                    largest = right;
+                }
+            }
+
+            if (largest !== idx) {
+                swaps++;
+                yield { action: 'swap', array: [...arr], heapSize: size, msg: `Max is ${arr[largest]}. Swapping ${arr[idx]} and ${arr[largest]} to maintain max-heap.`, comps, swaps, root: idx, swapCoords: [idx, largest] };
+                
+                [arr[idx], arr[largest]] = [arr[largest], arr[idx]];
+                
+                yield { action: 'swapped', array: [...arr], heapSize: size, msg: `Swap complete.`, comps, swaps, active: [largest], root: largest };
+
+                // Recursively heapify the affected sub-tree
+                yield* heapify(arr, size, largest, isBuilding);
+            } else {
+                yield { action: 'ok', array: [...arr], heapSize: size, msg: `Node ${arr[idx]} is larger than its children. Heap property verified.`, comps, swaps, root: idx, active: [] };
+            }
+        }
+    }
+
+    // --- Playback Controls ---
+    async function executeNextStep() {
+        if (!sortGenerator) return;
+
+        const result = sortGenerator.next();
+        
+        if (result.done) {
+            finishSort();
+            return;
+        }
+
+        renderState(result.value);
+
+        // Logic for pausing after Build Heap phase
+        if (stopAfterBuild && result.value.action === 'heap_built') {
+            pauseSort();
+            // Automatically switch mode to let the user Start Sort afterwards
+            stopAfterBuild = false; 
+            return;
+        }
+
+        if (isPlaying) {
+            sortTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function buildHeapOnly() {
+        if (!sortGenerator) {
+            sortGenerator = getHeapSortSteps(originalArray);
+        }
+        stopAfterBuild = true;
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function startSort() {
+        if (!sortGenerator) {
+            sortGenerator = getHeapSortSteps(originalArray);
+        }
+        stopAfterBuild = false; // Override any build-only setting
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseSort() {
+        isPlaying = false;
+        clearTimeout(sortTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseSort();
+        if (!sortGenerator) {
+            sortGenerator = getHeapSortSteps(originalArray);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseSort();
+        sortGenerator = null;
+        
+        renderState({
+            action: 'init',
+            array: [...originalArray],
+            heapSize: originalArray.length,
+            msg: "Click 'Build Heap' or 'Start Sort' to begin.",
+            comps: 0,
+            swaps: 0
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishSort() {
+        isPlaying = false;
+        sortGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        btnRandom.disabled = isPlaying;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseSort;
+            btnBuild.disabled = true;
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start Sort";
+            btnStart.onclick = startSort;
+            
+            // Determine if completely finished
+            const isFinished = currentState && currentState.action === 'done';
+            
+            btnStart.disabled = isFinished;
+            btnBuild.disabled = isFinished || (currentState && currentState.action !== 'init'); 
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

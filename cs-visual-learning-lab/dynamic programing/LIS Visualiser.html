@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Longest Increasing Subsequence Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Array Cell Transitions */
+        .cell-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .array-cell {
+            min-width: 4rem;
+            height: 4rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            border: 2px solid #e2e8f0;
+            background-color: #ffffff;
+            color: #64748b;
+            position: relative;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .dp-cell {
+            min-width: 4rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            border: 2px solid #e2e8f0;
+            background-color: #f8fafc;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+
+        /* Cell States */
+        .cell-default { background-color: #ffffff; border-color: #e2e8f0; color: #475569; }
+        .cell-current { 
+            background-color: #fef08a; 
+            border-color: #eab308; 
+            color: #854d0e; 
+            transform: scale(1.1); 
+            box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.4);
+            z-index: 20;
+        }
+        .cell-compare { 
+            background-color: #e0f2fe; 
+            border-color: #38bdf8; 
+            color: #0369a1; 
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .cell-valid { 
+            background-color: #dcfce7; 
+            border-color: #22c55e; 
+            color: #166534; 
+            transform: scale(1.1);
+            box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.4);
+            z-index: 25;
+        }
+        .cell-invalid {
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+            opacity: 0.7;
+        }
+
+        /* SVG Arrow Animations */
+        .arrow-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw-arrow 0.5s ease-out forwards;
+        }
+
+        @keyframes draw-arrow {
+            to { stroke-dashoffset: 0; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 17l4-4 4 4m0 0l4-4 4 4" />
+                    </svg>
+                    LIS DP Visualizer
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Setup Array
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm w-36 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start DP
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium transition-colors border border-emerald-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="100" max="1500" value="700" class="w-20 accent-emerald-600" dir="rtl">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Fields -->
+            <div class="flex flex-col sm:flex-row gap-4 items-end bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="w-full sm:w-96">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Input Array (comma-separated)</label>
+                    <input type="text" id="input-array" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 mono" value="10, 22, 9, 33, 21, 50, 41, 60">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left/Center Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready to compute.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[130px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Current Index <span class="mono lowercase font-bold text-yellow-600">i</span></div>
+                        <div class="text-xl font-bold text-yellow-600 mono" id="metric-i">-</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[130px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Compare Index <span class="mono lowercase font-bold text-blue-600">j</span></div>
+                        <div class="text-xl font-bold text-blue-500 mono" id="metric-j">-</div>
+                    </div>
+                    <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-100 min-w-[130px] text-center shadow-inner">
+                        <div class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Max LIS Length</div>
+                        <div class="text-xl font-bold text-emerald-600 mono" id="metric-max-lis">1</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col relative" style="height: 400px;">
+                
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 z-20 flex flex-col gap-2 text-xs font-medium bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="font-bold text-slate-500 uppercase tracking-wider mb-1 border-b pb-1">Legend</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-yellow-500 bg-yellow-200"></span> Current Element (<span class="mono italic">i</span>)</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-blue-400 bg-blue-100"></span> Comparing Element (<span class="mono italic">j</span>)</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-green-500 bg-green-200"></span> Valid Extension</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-red-300 bg-red-100"></span> Invalid (Not Increasing)</div>
+                </div>
+
+                <!-- Array Container (Scrollable horizontally) -->
+                <div class="w-full h-full overflow-x-auto overflow-y-hidden custom-scrollbar relative flex items-center px-8" id="array-scroll-container">
+                    
+                    <div class="relative flex flex-col gap-8 pt-6 pb-4 min-w-max" id="visualization-container">
+                        <!-- SVG overlay for arrows -->
+                        <svg id="arrows-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5;">
+                            <!-- Definitions for arrowheads -->
+                            <defs>
+                                <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                    <polygon points="0 0, 6 3, 0 6" fill="#22c55e" />
+                                </marker>
+                            </defs>
+                        </svg>
+
+                        <!-- Input Array Row -->
+                        <div class="flex items-end gap-3">
+                            <div class="w-20 text-right pr-4 text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center justify-end h-16">Input<br>Array</div>
+                            <div class="flex gap-3" id="input-array-container">
+                                <!-- Input cells injected via JS -->
+                            </div>
+                        </div>
+
+                        <!-- DP Array Row -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-20 text-right pr-4 text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center justify-end h-12">DP<br>(Length)</div>
+                            <div class="flex gap-3" id="dp-array-container">
+                                <!-- DP cells injected via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Code Context -->
+            <div class="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-5 text-slate-300 mono text-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-slate-700 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase">O(n&sup2;) DP Logic</div>
+                <div class="flex gap-4">
+                    <div class="w-8 text-slate-500 text-right select-none flex flex-col">
+                        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-blue-400">let</span> dp = <span class="text-blue-400">new</span> Array(n).fill(<span class="text-emerald-400">1</span>);
+                        <span class="text-fuchsia-400">for</span> (<span class="text-blue-400">let</span> i = 1; i < n; i++) {
+                        <span class="pl-4"><span class="text-fuchsia-400">for</span> (<span class="text-blue-400">let</span> j = 0; j < i; j++) {</span>
+                        <span class="pl-8"><span class="text-fuchsia-400">if</span> (arr[i] > arr[j] && dp[i] < dp[j] + 1) {</span>
+                        <span class="pl-12 text-yellow-400 font-bold">dp[i] = dp[j] + 1;</span>
+                        <span class="pl-8">}</span>
+                        <span class="pl-4">}</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel -->
+        <aside class="lg:col-span-1 flex flex-col gap-6 h-fit sticky top-24">
+            
+            <!-- Theory Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                    Algorithm Theory
+                </h2>
+                
+                <div class="space-y-5 text-sm text-slate-600">
+                    <div>
+                        <h3 class="font-bold text-slate-800 border-b pb-1 mb-2">The Subproblem</h3>
+                        <p>We want to find the Longest Increasing Subsequence (LIS) ending exactly at index <span class="mono font-bold text-slate-800">i</span>.</p>
+                        <p class="mt-2 text-xs bg-slate-50 text-slate-600 p-2 rounded border border-slate-200">
+                            Initially, every element is an increasing subsequence of length 1 (itself). So, <span class="mono font-bold text-emerald-700">dp[i] = 1</span> for all <span class="mono">i</span>.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-slate-800 border-b pb-1 mb-2">Building the Sequence</h3>
+                        <p>For each element at index <span class="mono font-bold text-yellow-600">i</span>, we look back at all previous elements at index <span class="mono font-bold text-blue-600">j</span> (where <span class="mono">j &lt; i</span>).</p>
+                        <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-500">
+                            <li>If <span class="mono text-slate-700">arr[i] > arr[j]</span>, we can append <span class="mono">arr[i]</span> to the subsequence ending at <span class="mono">j</span>.</li>
+                            <li>The new length becomes <span class="mono text-emerald-600 font-bold">dp[j] + 1</span>.</li>
+                            <li>We update <span class="mono">dp[i]</span> if this new length is greater than its current value.</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-4">
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-emerald-800 font-semibold">Time Complexity</span>
+                                <span class="font-mono text-emerald-900 font-bold bg-white border border-emerald-200 px-2 py-0.5 rounded shadow-sm">O(n&sup2;)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-emerald-800 font-semibold">Space Complexity</span>
+                                <span class="font-mono text-emerald-900 font-bold bg-white border border-emerald-200 px-2 py-0.5 rounded shadow-sm">O(n)</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-emerald-700 mt-2 leading-tight italic">Note: A more advanced O(n log n) approach exists using Binary Search.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        let inputArray = [10, 22, 9, 33, 21, 50, 41, 60];
+        
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 700; // ms
+
+        // Visual Layout Constants
+        const CELL_WIDTH = 64; // 4rem
+        const GAP = 12; // 0.75rem (gap-3)
+        const TOTAL_CELL_WIDTH = CELL_WIDTH + GAP;
+        const ROW_HEIGHT = 64;
+
+        // DOM Elements
+        const inputContainerEl = document.getElementById('input-array-container');
+        const dpContainerEl = document.getElementById('dp-array-container');
+        const scrollContainerEl = document.getElementById('array-scroll-container');
+        const svgEl = document.getElementById('arrows-svg');
+        
+        const stepExplEl = document.getElementById('step-explanation');
+        const metricIEl = document.getElementById('metric-i');
+        const metricJEl = document.getElementById('metric-j');
+        const metricMaxLisEl = document.getElementById('metric-max-lis');
+        
+        const inputArrayInputEl = document.getElementById('input-array');
+        
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // --- Initialization & Setup ---
+        function init() {
+            setupVisualizer();
+            setupEventListeners();
+        }
+
+        function parseInputs() {
+            let rawArr = inputArrayInputEl.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+            if (rawArr.length === 0) {
+                alert("Please provide a valid comma-separated list of numbers.");
+                rawArr = [10, 22, 9, 33, 21, 50, 41, 60];
+                inputArrayInputEl.value = rawArr.join(', ');
+            }
+            if (rawArr.length > 20) {
+                alert("Array length capped at 20 to ensure visual clarity.");
+                rawArr = rawArr.slice(0, 20);
+                inputArrayInputEl.value = rawArr.join(', ');
+            }
+            inputArray = rawArr;
+        }
+
+        function setupVisualizer() {
+            stopAutoPlay();
+            parseInputs();
+            
+            // Build the initial empty UI
+            inputContainerEl.innerHTML = '';
+            dpContainerEl.innerHTML = '';
+            svgEl.innerHTML = `
+                <defs>
+                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                        <polygon points="0 0, 6 3, 0 6" fill="#22c55e" />
+                    </marker>
+                </defs>
+            `;
+            
+            // Initialize Arrays Visuals
+            let initialDP = new Array(inputArray.length).fill(1);
+            
+            inputArray.forEach((val, i) => {
+                // Input Cell
+                const inputCell = document.createElement('div');
+                inputCell.className = 'array-cell cell-transition cell-default mono';
+                inputCell.id = `in-cell-${i}`;
+                inputCell.innerHTML = `<span class="text-[10px] text-slate-400 absolute top-1 left-2 font-medium">i=${i}</span>${val}`;
+                inputContainerEl.appendChild(inputCell);
+
+                // DP Cell
+                const dpCell = document.createElement('div');
+                dpCell.className = 'dp-cell cell-transition cell-default mono';
+                dpCell.id = `dp-cell-${i}`;
+                dpCell.innerText = initialDP[i];
+                dpContainerEl.appendChild(dpCell);
+            });
+            
+            // Setup generator
+            stateGenerator = lisGenerator(inputArray);
+            
+            // Reset text/metrics
+            stepExplEl.innerHTML = `Initialized DP array to 1. Every element is an increasing subsequence of length 1. Click 'Start DP' to begin.`;
+            metricIEl.innerText = "-";
+            metricJEl.innerText = "-";
+            metricMaxLisEl.innerText = "1";
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start DP`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+            
+            // Reset scroll
+            setTimeout(() => { scrollContainerEl.scrollLeft = 0; }, 10);
+        }
+
+        // --- Algorithm Generator (Animation Driver) ---
+        function* lisGenerator(arr) {
+            let n = arr.length;
+            let dp = new Array(n).fill(1);
+            let maxLisLength = 1;
+
+            if (n === 0) return;
+
+            for (let i = 1; i < n; i++) {
+                
+                // Yield state: Selecting current element i
+                yield {
+                    dp: [...dp], currI: i, currJ: null, phase: 'select_i',
+                    exp: `Selected element at index <span class="font-bold text-yellow-600">i = ${i}</span> (Value: ${arr[i]}). Will compare with all previous elements.`,
+                    maxLis: maxLisLength
+                };
+
+                for (let j = 0; j < i; j++) {
+                    
+                    // Yield state: Comparing i with j
+                    yield {
+                        dp: [...dp], currI: i, currJ: j, phase: 'compare',
+                        exp: `Comparing <span class="font-bold text-yellow-600">arr[${i}] (${arr[i]})</span> with <span class="font-bold text-blue-500">arr[${j}] (${arr[j]})</span>.`,
+                        maxLis: maxLisLength
+                    };
+
+                    if (arr[i] > arr[j]) {
+                        
+                        // Condition 1 met: Increasing subsequence
+                        yield {
+                            dp: [...dp], currI: i, currJ: j, phase: 'valid_compare',
+                            exp: `${arr[i]} > ${arr[j]}. <span class="text-green-600 font-bold">Valid extension.</span> Checking if DP update is needed.`,
+                            maxLis: maxLisLength
+                        };
+
+                        if (dp[i] < dp[j] + 1) {
+                            dp[i] = dp[j] + 1;
+                            maxLisLength = Math.max(maxLisLength, dp[i]);
+                            
+                            // Condition 2 met: Better length found
+                            yield {
+                                dp: [...dp], currI: i, currJ: j, phase: 'update',
+                                exp: `dp[${i}] < dp[${j}] + 1 (${dp[i]-1} < ${dp[j]}). <span class="text-green-600 font-bold">Updating dp[${i}] to ${dp[i]}</span>.`,
+                                maxLis: maxLisLength,
+                                updateConnection: true // Signal to draw arrow
+                            };
+                        } else {
+                            // Subsequence exists but is not longer
+                            yield {
+                                dp: [...dp], currI: i, currJ: j, phase: 'no_update',
+                                exp: `dp[${i}] &ge; dp[${j}] + 1 (${dp[i]} &ge; ${dp[j]+1}). Current length is already optimal. No update.`,
+                                maxLis: maxLisLength
+                            };
+                        }
+                    } else {
+                        // Not increasing
+                        yield {
+                            dp: [...dp], currI: i, currJ: j, phase: 'invalid',
+                            exp: `${arr[i]} &le; ${arr[j]}. Not strictly increasing. Cannot extend sequence.`,
+                            maxLis: maxLisLength
+                        };
+                    }
+                }
+            }
+            
+            yield {
+                dp: [...dp], currI: null, currJ: null, phase: 'done',
+                exp: `<strong>Algorithm Complete!</strong> Maximum LIS Length is <span class="text-emerald-600 font-bold">${maxLisLength}</span>.`,
+                maxLis: maxLisLength
+            };
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { dp, currI, currJ, phase, exp, maxLis, updateConnection } = state;
+
+            // Update Metrics & Explanation
+            stepExplEl.innerHTML = exp;
+            metricIEl.innerText = currI !== null ? currI : "-";
+            metricJEl.innerText = currJ !== null ? currJ : "-";
+            metricMaxLisEl.innerText = maxLis;
+
+            // Update Arrays
+            for (let k = 0; k < inputArray.length; k++) {
+                const inCell = document.getElementById(`in-cell-${k}`);
+                const dpCell = document.getElementById(`dp-cell-${k}`);
+                
+                // Reset Classes
+                inCell.className = 'array-cell cell-transition mono cell-default';
+                dpCell.className = 'dp-cell cell-transition mono cell-default';
+                dpCell.innerText = dp[k];
+
+                if (k === currI) {
+                    if (phase === 'update') {
+                        inCell.classList.add('cell-valid');
+                        dpCell.classList.add('cell-valid');
+                    } else if (phase === 'invalid') {
+                        inCell.classList.add('cell-invalid');
+                        dpCell.classList.add('cell-default');
+                    } else {
+                        inCell.classList.add('cell-current');
+                        dpCell.classList.add('cell-current');
+                    }
+                } else if (k === currJ) {
+                    if (phase === 'update' || phase === 'valid_compare' || phase === 'no_update') {
+                        inCell.classList.add('cell-compare');
+                        dpCell.classList.add('cell-compare');
+                    } else if (phase === 'invalid') {
+                        inCell.classList.add('cell-invalid');
+                        dpCell.classList.add('cell-default');
+                    } else {
+                        inCell.classList.add('cell-compare');
+                    }
+                }
+            }
+
+            // Draw Jump Arrows
+            const svgsDefs = `
+                <defs>
+                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                        <polygon points="0 0, 6 3, 0 6" fill="#22c55e" />
+                    </marker>
+                </defs>
+            `;
+            svgEl.innerHTML = svgsDefs;
+
+            if (updateConnection && currI !== null && currJ !== null) {
+                // Draw arrow from j to i in the DP row area
+                // Find relative coordinates
+                const srcX = (currJ * TOTAL_CELL_WIDTH) + (CELL_WIDTH / 2) + 90; // +90 accounts for the left label offset
+                const destX = (currI * TOTAL_CELL_WIDTH) + (CELL_WIDTH / 2) + 90;
+                
+                const startY = 80; // Middle of DP array vertically roughly
+                const destY = 80;
+                
+                const dist = currI - currJ;
+                const controlY = startY + 40 + (Math.min(dist, 10) * 8); // Arc below
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", `M ${srcX} ${startY + 20} Q ${(srcX+destX)/2} ${controlY} ${destX} ${destY + 25}`);
+                path.setAttribute("fill", "transparent");
+                path.setAttribute("stroke", "#22c55e");
+                path.setAttribute("stroke-width", "3");
+                path.setAttribute("stroke-dasharray", "5,5"); 
+                path.setAttribute("marker-end", "url(#arrowhead)");
+                path.setAttribute("class", "arrow-path");
+
+                svgEl.appendChild(path);
+            }
+
+            // Auto-scroll logic to follow `i`
+            if (currI !== null) {
+                const targetScrollLeft = (currI * TOTAL_CELL_WIDTH) - (scrollContainerEl.clientWidth / 2) + CELL_WIDTH + 100;
+                scrollContainerEl.scrollTo({
+                    left: Math.max(0, targetScrollLeft),
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) setupVisualizer();
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                if(!stateGenerator) setupVisualizer();
+                
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-emerald-600', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-emerald-700', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                autoPlayLoop();
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start DP`;
+            btnStart.classList.replace('bg-slate-600', 'bg-emerald-600');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-emerald-700');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnReset.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                // Invert logic: right slider position = less delay = faster
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+
+            inputArrayInputEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

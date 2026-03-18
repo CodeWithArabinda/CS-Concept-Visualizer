@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stack Data Structure Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .stack-container {
+            height: 550px;
+            width: 290px;
+            border-bottom: 8px solid #334155;
+            border-left: 4px solid #cbd5e1;
+            border-right: 4px solid #cbd5e1;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            padding-bottom: 4px;
+            position: relative;
+            background: linear-gradient(to top, #f1f5f9 0%, transparent 100%);
+        }
+
+        .stack-element {
+            width: 90%;
+            height: 40px;
+            margin-bottom: 4px;
+            background-color: #3b82f6;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 6px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: slideIn 0.4s ease-out;
+            position: relative;
+            border: 2px solid #2563eb;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .stack-element.popping {
+            transform: translateX(200px);
+            opacity: 0;
+        }
+
+        .stack-element.peek {
+            background-color: #f59e0b;
+            border-color: #d97706;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .top-pointer {
+            position: absolute;
+            right: -80px;
+            display: flex;
+            align-items: center;
+            color: #ef4444;
+            font-weight: bold;
+            transition: all 0.4s ease;
+        }
+
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        .log-entry {
+            border-left: 4px solid #3b82f6;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-extrabold text-slate-800">Stack Visualizer</h1>
+            <p class="text-slate-500 mt-2">Interactive Computer Science Learning Tool</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Controls Panel -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold mb-4 text-slate-700 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Controls
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">Data Input</label>
+                        <input type="number" id="stackInput" placeholder="Enter a value" 
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="push()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                            Push (Add)
+                        </button>
+                        <button onclick="pop()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                            Pop (Remove)
+                        </button>
+                    </div>
+
+                    <button onclick="peek()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Peek (View Top)
+                    </button>
+
+                    <button onclick="resetStack()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors">
+                        Reset Stack
+                    </button>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Stack Info</h3>
+                    <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <span class="text-slate-600">Current Size:</span>
+                        <span id="stackSize" class="font-bold text-blue-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 mt-2">
+                        <span class="text-slate-600">Max Capacity:</span>
+                        <span class="font-bold text-slate-800">10</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Canvas -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
+                <h2 class="text-xl font-bold mb-8 text-slate-700">Memory Visualization</h2>
+                
+                <div id="stackContainer" class="stack-container">
+                    <!-- Elements will be injected here -->
+                </div>
+                
+                <div class="mt-4 text-slate-400 text-sm font-medium italic">Base of Stack</div>
+            </div>
+
+            <!-- Explanation & Logs Panel -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+                <h2 class="text-xl font-bold mb-4 text-slate-700 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Explanation Panel
+                </h2>
+
+                <div id="teachingMode" class="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6">
+                    <p class="text-blue-800 text-sm leading-relaxed">
+                        <strong>The LIFO Principle:</strong> A stack follows the <em>Last In First Out</em> principle. The last element added (Pushed) is always the first one to be removed (Popped).
+                    </p>
+                </div>
+
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Operation Log</h3>
+                <div id="logArea" class="flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-2">
+                    <div class="text-slate-400 text-sm italic">No operations performed yet...</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Feedback Overlay -->
+        <div id="feedback" class="fixed bottom-8 right-8 pointer-events-none opacity-0 transition-opacity duration-300">
+            <div id="feedbackMsg" class="bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold"></div>
+        </div>
+    </div>
+
+    <script>
+        const MAX_SIZE = 10;
+        let stack = [];
+        const container = document.getElementById('stackContainer');
+        const input = document.getElementById('stackInput');
+        const sizeDisplay = document.getElementById('stackSize');
+        const logArea = document.getElementById('logArea');
+        const feedback = document.getElementById('feedback');
+        const feedbackMsg = document.getElementById('feedbackMsg');
+
+        /**
+         * Pushes a value onto the stack
+         */
+        function push() {
+            const val = input.value;
+            if (val === "") {
+                showMessage("Please enter a value", "error");
+                return;
+            }
+
+            if (stack.length >= MAX_SIZE) {
+                showMessage("Stack Overflow!", "error");
+                addLog("<strong>Overflow:</strong> Cannot push " + val + ". Stack is full.", "red");
+                return;
+            }
+
+            stack.push(val);
+            input.value = "";
+            renderStack();
+            addLog(`<strong>Push:</strong> Added ${val} to the top.`, "blue");
+            showMessage(`Pushed ${val}`);
+        }
+
+        /**
+         * Pops the top element off the stack
+         */
+        function pop() {
+            if (stack.length === 0) {
+                showMessage("Stack Underflow!", "error");
+                addLog("<strong>Underflow:</strong> Cannot pop from an empty stack.", "red");
+                return;
+            }
+
+            // Visual animation before removal
+            const elements = document.querySelectorAll('.stack-element');
+            const topEl = elements[elements.length - 1];
+            topEl.classList.add('popping');
+
+            setTimeout(() => {
+                const poppedValue = stack.pop();
+                renderStack();
+                addLog(`<strong>Pop:</strong> Removed ${poppedValue} from the top.`, "red");
+                showMessage(`Popped ${poppedValue}`);
+            }, 400);
+        }
+
+        /**
+         * Highlights the top element
+         */
+        function peek() {
+            if (stack.length === 0) {
+                showMessage("Stack is empty", "error");
+                addLog("<strong>Peek:</strong> Stack is empty, nothing to see.", "slate");
+                return;
+            }
+
+            const elements = document.querySelectorAll('.stack-element');
+            const topEl = elements[elements.length - 1];
+            
+            // Remove peek class if already there to restart animation
+            topEl.classList.remove('peek');
+            void topEl.offsetWidth; // Trigger reflow
+            topEl.classList.add('peek');
+
+            const topValue = stack[stack.length - 1];
+            addLog(`<strong>Peek:</strong> Top element is ${topValue}.`, "amber");
+            showMessage(`Peek: Top is ${topValue}`);
+
+            // Remove highlight after a delay
+            setTimeout(() => {
+                topEl.classList.remove('peek');
+            }, 1500);
+        }
+
+        /**
+         * Resets the data structure
+         */
+        function resetStack() {
+            stack = [];
+            renderStack();
+            logArea.innerHTML = '<div class="text-slate-400 text-sm italic">Stack cleared.</div>';
+            showMessage("Stack Reset");
+        }
+
+        /**
+         * Updates the UI based on stack state
+         */
+        function renderStack() {
+            container.innerHTML = '';
+            
+            stack.forEach((val, index) => {
+                const el = document.createElement('div');
+                el.className = 'stack-element';
+                el.textContent = val;
+                
+                // Add TOP pointer to the highest element
+                if (index === stack.length - 1) {
+                    const pointer = document.createElement('div');
+                    pointer.className = 'top-pointer';
+                    pointer.innerHTML = `
+                        <svg class="w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clip-rule="evenodd"></path></svg>
+                        <span>TOP</span>
+                    `;
+                    el.appendChild(pointer);
+                }
+                
+                container.appendChild(el);
+            });
+
+            sizeDisplay.textContent = stack.length;
+        }
+
+        /**
+         * Adds an entry to the visual log
+         */
+        function addLog(message, colorClass) {
+            // Remove the empty state message if it exists
+            if (logArea.querySelector('.italic')) {
+                logArea.innerHTML = '';
+            }
+
+            const div = document.createElement('div');
+            div.className = `log-entry p-2 bg-slate-50 rounded-r text-sm text-slate-700 border-l-4`;
+            
+            // Map colors
+            const colors = {
+                blue: 'border-blue-500',
+                red: 'border-red-500',
+                amber: 'border-amber-500',
+                slate: 'border-slate-400'
+            };
+            div.classList.add(colors[colorClass] || 'border-blue-500');
+            
+            div.innerHTML = message;
+            logArea.prepend(div);
+        }
+
+        /**
+         * Shows a temporary feedback message
+         */
+        function showMessage(msg, type = "success") {
+            feedbackMsg.textContent = msg;
+            feedbackMsg.className = type === "error" 
+                ? "bg-red-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold" 
+                : "bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold";
+            
+            feedback.style.opacity = "1";
+            
+            setTimeout(() => {
+                feedback.style.opacity = "0";
+            }, 2000);
+        }
+
+        // Support Enter key for pushing
+        input.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                push();
+            }
+        });
+    </script>
+</body>
+</html>

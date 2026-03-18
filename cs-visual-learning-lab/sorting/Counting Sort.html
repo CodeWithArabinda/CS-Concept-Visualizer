@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counting Sort Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans">
+
+<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
+    <header class="col-span-1 lg:col-span-full text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Counting Sort Visualizer</h1>
+    </header>
+
+    <!-- Controls -->
+    <div class="col-span-1 lg:col-span-full bg-white p-5 rounded-xl shadow-sm flex flex-wrap gap-4 items-center justify-center">
+        <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" onclick="generateRandomArray()">Generate Random Array</button>
+        <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" onclick="startSort()">Start Sort</button>
+        <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+        <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+        <div class="flex items-center gap-2 text-sm font-semibold">
+            <label for="speed-slider">Speed:</label>
+            <input type="range" id="speed-slider" min="50" max="2000" value="800" dir="rtl" oninput="updateSpeed()">
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="flex flex-col gap-5">
+        <div class="bg-white rounded-xl p-6 shadow-sm flex flex-col gap-8">
+            
+            <!-- Input Array Section -->
+            <div class="flex flex-col items-center gap-2">
+                <div class="font-semibold text-lg text-slate-500">Input Array</div>
+                <div class="flex gap-2 flex-wrap justify-center" id="input-container"></div>
+            </div>
+
+            <!-- Count Array Section -->
+            <div class="flex flex-col items-center gap-2">
+                <div class="font-semibold text-lg text-slate-500">Count Array (Frequencies / Cumulative)</div>
+                <div class="flex gap-2 flex-wrap justify-center" id="count-container"></div>
+            </div>
+
+            <!-- Output Array Section -->
+            <div class="flex flex-col items-center gap-2">
+                <div class="font-semibold text-lg text-slate-500">Output Array (Sorted)</div>
+                <div class="flex gap-2 flex-wrap justify-center" id="output-container"></div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg font-medium text-lg min-h-[60px] text-center" id="step-explanation">
+                Click "Start Sort" to begin.
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-4 justify-center p-4 bg-white rounded-xl shadow-sm">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-4 h-4 rounded bg-yellow-400"></div>
+                <span>Current Element / Indexing</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-4 h-4 rounded bg-purple-400"></div>
+                <span>Updating Count</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-4 h-4 rounded bg-green-400"></div>
+                <span>Sorted Placement</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sidebar Educational Panel -->
+    <aside class="flex flex-col gap-5">
+        <!-- Algorithm Metrics -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold mb-4 pb-2 border-b-2 border-slate-200">Algorithm Metrics</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 bg-slate-50 p-3 rounded-lg text-center border border-slate-200">
+                    <div>Operations</div>
+                    <div class="text-2xl font-bold text-blue-500 mt-1" id="metric-ops">0</div>
+                </div>
+                <div class="col-span-2 bg-slate-50 p-3 rounded-lg text-center border border-slate-200">
+                    <div>Current Focus Freq.</div>
+                    <div class="text-2xl font-bold text-blue-500 mt-1" id="metric-freq">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Info -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold mb-4 pb-2 border-b-2 border-slate-200">Educational Panel</h2>
+            <p class="mb-4 text-slate-500 text-sm">
+                <strong>Counting Sort</strong> is a non-comparison sorting algorithm. Instead of comparing elements, it counts the occurrences of each unique element in the array.
+            </p>
+            <p class="mb-4 text-slate-500 text-sm">
+                <strong>Limitations:</strong> It is only efficient when the range of potential items (<i>k</i>) is relatively small compared to the number of items (<i>n</i>). It only works with integers.
+            </p>
+            <ul class="list-none">
+                <li class="mb-3 flex justify-between items-center pb-2 border-b border-dashed border-slate-200">
+                    <span>Time Complexity</span>
+                    <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-mono font-bold text-sm">O(n + k)</span>
+                </li>
+                <li class="mb-3 flex justify-between items-center pb-2 border-b border-dashed border-slate-200">
+                    <span>Space Complexity</span>
+                    <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-mono font-bold text-sm">O(n + k)</span>
+                </li>
+                <li class="mb-3 flex justify-between items-center pb-2 border-b border-dashed border-slate-200 last:border-0 last:pb-0 last:mb-0">
+                    <span>Stable Sort?</span>
+                    <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-mono font-bold text-sm">Yes</span>
+                </li>
+            </ul>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // --- Global State ---
+    let inputArray = [];
+    let countArray = [];
+    let outputArray = [];
+    let maxVal = 9; // Fixed range 0-9 for easy visualization
+    
+    let sortGenerator = null;
+    let isPlaying = false;
+    let sortTimeout = null;
+    let animationSpeed = 800;
+    
+    // DOM Elements
+    const inputContainer = document.getElementById('input-container');
+    const countContainer = document.getElementById('count-container');
+    const outputContainer = document.getElementById('output-container');
+    const explanationEl = document.getElementById('step-explanation');
+    const metricOps = document.getElementById('metric-ops');
+    const metricFreq = document.getElementById('metric-freq');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateRandomArray();
+        updateSpeed();
+    }
+
+    function generateRandomArray() {
+        if (isPlaying) return;
+        // Generate array of 12 elements with values between 0 and 9
+        inputArray = Array.from({length: 12}, () => Math.floor(Math.random() * (maxVal + 1)));
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- UI Rendering ---
+    function createBoxes(container, array, isCountArray = false, activeStates = {}) {
+        container.innerHTML = '';
+        array.forEach((val, index) => {
+            const el = document.createElement('div');
+            el.className = 'flex flex-col items-center gap-1';
+
+            const box = document.createElement('div');
+            
+            // Value display (empty string if undefined/null)
+            box.textContent = val !== null && val !== undefined && val !== "" ? val : "";
+
+            let bgClass = 'bg-slate-100';
+            let borderClass = 'border-slate-200';
+            let extraClasses = [];
+
+            // --- Apply Colors based on activeStates ---
+            if (activeStates.currentIdx === index && !isCountArray && activeStates.target === 'input') {
+                bgClass = 'bg-yellow-400';
+                extraClasses.push('scale-110', 'z-10');
+                borderClass = 'border-black';
+            }
+            if (activeStates.readIdx === index && !isCountArray && activeStates.target === 'input') {
+                bgClass = 'bg-blue-300';
+            }
+            if (activeStates.outIdx === index && !isCountArray && activeStates.target === 'output') {
+                bgClass = 'bg-green-400';
+                extraClasses.push('scale-110', 'z-10');
+                borderClass = 'border-black';
+            }
+            if (activeStates.done && !isCountArray && activeStates.target === 'output') {
+                bgClass = 'bg-green-400';
+            }
+
+            // Count Array specific styling
+            if (isCountArray) {
+                if (activeStates.countIdx === index) {
+                    if (activeStates.action === 'read') bgClass = 'bg-yellow-400';
+                    else if (activeStates.action === 'update') {
+                        bgClass = 'bg-purple-400';
+                        extraClasses.push('scale-110', 'z-10');
+                        borderClass = 'border-black';
+                    }
+                    else if (activeStates.action === 'decrement') bgClass = 'bg-purple-400';
+                }
+                if (activeStates.prevCountIdx === index) {
+                    bgClass = 'bg-blue-300';
+                }
+            }
+
+            box.className = `w-[50px] h-[50px] flex items-center justify-center text-xl font-bold border-2 rounded-lg transition-all duration-300 shadow-sm ${bgClass} ${borderClass} ${extraClasses.join(' ')}`;
+
+            const label = document.createElement('div');
+            label.className = 'text-xs text-slate-500 font-mono';
+            label.textContent = `[${index}]`;
+
+            el.appendChild(box);
+            el.appendChild(label);
+            container.appendChild(el);
+        });
+    }
+
+    function renderState(state) {
+        // Update Metrics
+        metricOps.textContent = state.operations;
+        if (state.countArray && state.val !== undefined) {
+            metricFreq.textContent = state.countArray[state.val] || 0;
+        } else {
+            metricFreq.textContent = '-';
+        }
+
+        // Update Explanation
+        explanationEl.textContent = state.msg;
+
+        // Render Arrays
+        createBoxes(inputContainer, state.inputArray, false, {
+            currentIdx: state.inputIdx,
+            readIdx: state.phase.startsWith('place') ? state.inputIdx : -1,
+            target: 'input'
+        });
+
+        createBoxes(countContainer, state.countArray, true, {
+            countIdx: state.countIdx,
+            prevCountIdx: state.prevCountIdx,
+            action: state.countAction
+        });
+
+        createBoxes(outputContainer, state.outputArray, false, {
+            outIdx: state.outIdx,
+            target: 'output',
+            done: state.phase === 'done'
+        });
+    }
+
+    // --- Counting Sort Algorithm Generator ---
+    function* getCountingSortSteps(input) {
+        let n = input.length;
+        let k = maxVal; // Range is known: 0 to 9
+        
+        let count = new Array(k + 1).fill(0);
+        let output = new Array(n).fill("");
+        let operations = 0;
+
+        yield { phase: 'init', inputArray: input, countArray: count, outputArray: output, msg: "Initialized Count Array with zeros.", operations };
+
+        // Phase 1: Count Frequencies
+        for (let i = 0; i < n; i++) {
+            let val = input[i];
+            operations++;
+            
+            yield { 
+                phase: 'count_read', inputArray: input, countArray: [...count], outputArray: output, 
+                inputIdx: i, countIdx: val, val: val, countAction: 'read',
+                msg: `Reading element ${val} at index ${i}.`, operations 
+            };
+            
+            count[val]++;
+            
+            yield { 
+                phase: 'count_update', inputArray: input, countArray: [...count], outputArray: output, 
+                inputIdx: i, countIdx: val, val: val, countAction: 'update',
+                msg: `Incremented count at index ${val}. Frequency is now ${count[val]}.`, operations 
+            };
+        }
+
+        yield { phase: 'info', inputArray: input, countArray: [...count], outputArray: output, msg: "Frequency counting complete. Now calculating cumulative sums.", operations };
+
+        // Phase 2: Cumulative Sums (determines positions)
+        for (let i = 1; i <= k; i++) {
+            operations++;
+            yield { 
+                phase: 'accumulate_read', inputArray: input, countArray: [...count], outputArray: output, 
+                countIdx: i, prevCountIdx: i - 1, countAction: 'read',
+                msg: `Adding previous count (${count[i-1]}) to current count (${count[i]}).`, operations 
+            };
+            
+            count[i] += count[i-1];
+            
+            yield { 
+                phase: 'accumulate_update', inputArray: input, countArray: [...count], outputArray: output, 
+                countIdx: i, countAction: 'update',
+                msg: `Cumulative sum at index ${i} is now ${count[i]}.`, operations 
+            };
+        }
+
+        yield { phase: 'info', inputArray: input, countArray: [...count], outputArray: output, msg: "Cumulative array built. It now indicates the exact ending position of elements.", operations };
+
+        // Phase 3: Placement (iterate backwards for stability)
+        for (let i = n - 1; i >= 0; i--) {
+            let val = input[i];
+            operations++;
+            
+            yield { 
+                phase: 'place_read', inputArray: input, countArray: [...count], outputArray: [...output], 
+                inputIdx: i, val: val, countIdx: val, countAction: 'read',
+                msg: `Placing element ${val} (from right to left for stability). Checking count array at index ${val}.`, operations 
+            };
+
+            let outIdx = count[val] - 1; // 0-based index
+            
+            yield { 
+                phase: 'place_find', inputArray: input, countArray: [...count], outputArray: [...output], 
+                inputIdx: i, val: val, countIdx: val, outIdx: outIdx, countAction: 'read',
+                msg: `Cumulative count is ${count[val]}. So, element ${val} belongs at Output Array index ${outIdx}.`, operations 
+            };
+
+            output[outIdx] = val;
+            count[val]--;
+            
+            yield { 
+                phase: 'place_write', inputArray: input, countArray: [...count], outputArray: [...output], 
+                inputIdx: i, val: val, countIdx: val, outIdx: outIdx, countAction: 'decrement',
+                msg: `Placed ${val}. Decremented cumulative count for ${val} to ${count[val]}.`, operations 
+            };
+        }
+
+        yield { phase: 'done', inputArray: input, countArray: [...count], outputArray: [...output], msg: "Counting Sort complete! All elements are sorted.", operations };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!sortGenerator) return;
+
+        const result = sortGenerator.next();
+        
+        if (result.done) {
+            finishSort();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            sortTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startSort() {
+        if (!sortGenerator) {
+            sortGenerator = getCountingSortSteps(inputArray);
+        }
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseSort() {
+        isPlaying = false;
+        clearTimeout(sortTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseSort();
+        if (!sortGenerator) {
+            sortGenerator = getCountingSortSteps(inputArray);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseSort();
+        sortGenerator = null;
+        
+        const count = new Array(maxVal + 1).fill(0);
+        const output = new Array(inputArray.length).fill("");
+        
+        renderState({
+            phase: 'init',
+            inputArray: [...inputArray],
+            countArray: count,
+            outputArray: output,
+            msg: "Click 'Start Sort' to begin counting the elements.",
+            operations: 0
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishSort() {
+        isPlaying = false;
+        sortGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        btnRandom.disabled = isPlaying;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseSort;
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start Sort";
+            btnStart.onclick = startSort;
+            
+            // Check if completely finished by checking output array completeness
+            const isFinished = explanationEl.textContent.includes("complete!");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

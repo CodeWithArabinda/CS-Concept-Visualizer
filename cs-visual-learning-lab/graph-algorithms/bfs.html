@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breadth First Search Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for graph nodes and queue items */
+        .node-circle {
+            transition: fill 0.4s ease, stroke 0.4s ease, stroke-width 0.4s ease;
+        }
+        .edge-line {
+            transition: stroke 0.4s ease, stroke-width 0.4s ease;
+        }
+        .queue-item {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Breadth First Search (BFS) Visualizer</h1>
+        <p class="text-slate-500">Visualizing graph traversal level by level using a queue</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4">
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 items-center justify-center">
+            <button id="btn-random" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="generateGraph()">Generate Random Graph</button>
+            <button id="btn-start" class="px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-32 shadow-sm" onclick="startBFS()">Start BFS</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="200" max="3000" value="1200" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Graph Area (Left/Center) -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center">
+                Graph Representation
+            </div>
+            <div class="relative w-full h-[400px] bg-slate-50/50 flex items-center justify-center">
+                <svg id="graph-svg" class="w-full h-full" viewBox="0 0 800 500">
+                    <!-- Graph generated dynamically -->
+                </svg>
+            </div>
+            <!-- Explanation Panel -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                Generate a graph and click "Start BFS" to begin traversal.
+            </div>
+        </div>
+
+        <!-- Queue & Metrics Panel (Right) -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- Queue Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-grow">
+                <div class="p-3 bg-blue-50 border-b border-blue-100 font-semibold text-blue-800 text-center flex justify-between items-center">
+                    <span>Queue</span>
+                    <span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">FIFO</span>
+                </div>
+                <div class="p-4 flex-grow flex flex-col gap-2 bg-slate-50/50 overflow-y-auto max-h-[200px]" id="queue-container">
+                    <!-- Queue items injected here -->
+                    <div class="text-slate-400 text-center text-sm mt-4 italic">Queue is empty</div>
+                </div>
+            </div>
+
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-3 pb-2 border-b-2 border-slate-100 text-slate-800">Traversal Metrics</h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase">Visited Nodes</div>
+                        <div class="text-2xl font-bold text-green-600 mt-1" id="metric-visited">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase">Queue Size</div>
+                        <div class="text-2xl font-bold text-blue-600 mt-1" id="metric-queuesize">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div class="text-slate-500 font-semibold text-xs uppercase mb-1">Traversal Order</div>
+                    <div class="font-mono font-bold text-slate-800 flex flex-wrap gap-1" id="metric-order">
+                        -
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Legend and Educational Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Legend -->
+        <div class="lg:col-span-2 flex flex-wrap gap-4 items-center justify-center p-5 bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-yellow-300 border-2 border-yellow-600 shadow-sm"></div>
+                <span>Current Node (Dequeued)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-blue-100 border-2 border-blue-500 shadow-sm"></div>
+                <span>Queued Node (Discovered)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-green-100 border-2 border-green-600 shadow-sm"></div>
+                <span>Visited Node (Processed)</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <div class="w-5 h-5 rounded-full bg-white border-2 border-slate-300 shadow-sm"></div>
+                <span>Unvisited</span>
+            </div>
+        </div>
+
+        <!-- Educational Panel -->
+        <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600">
+            <h2 class="text-base font-bold mb-2 text-slate-800">About BFS</h2>
+            <p class="mb-2">
+                <strong>Breadth-First Search</strong> explores the graph level by level. It visits the starting node, then all its direct neighbors, then the neighbors of those neighbors, and so on.
+            </p>
+            <p>
+                It uses a <strong>Queue (First-In-First-Out)</strong> to keep track of nodes to visit next, ensuring nodes closer to the start are processed before nodes further away.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global State ---
+    let graph = { nodes: [], edges: [] };
+    let startNodeId = 'A';
+    
+    let bfsGenerator = null;
+    let isPlaying = false;
+    let searchTimeout = null;
+    let animationSpeed = 1200;
+    
+    // DOM Elements
+    const graphSvg = document.getElementById('graph-svg');
+    const queueContainer = document.getElementById('queue-container');
+    const explanationEl = document.getElementById('step-explanation');
+    const metricVisited = document.getElementById('metric-visited');
+    const metricQueueSize = document.getElementById('metric-queuesize');
+    const metricOrder = document.getElementById('metric-order');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const btnRandom = document.getElementById('btn-random');
+
+    // --- Initialization ---
+    function init() {
+        generateGraph();
+        updateSpeed();
+    }
+
+    // --- Graph Generation ---
+    function generateGraph() {
+        if (isPlaying) return;
+        
+        const numNodes = 10;
+        const width = 800;
+        const height = 500;
+        const padding = 60;
+        
+        graph.nodes = [];
+        graph.edges = [];
+        
+        // Generate Nodes with simple collision avoidance
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (let i = 0; i < numNodes; i++) {
+            let x, y;
+            let collision = true;
+            let attempts = 0;
+            
+            while (collision && attempts < 100) {
+                x = padding + Math.random() * (width - padding * 2);
+                y = padding + Math.random() * (height - padding * 2);
+                collision = false;
+                
+                // Check distance to existing nodes
+                for (let node of graph.nodes) {
+                    let dx = node.x - x;
+                    let dy = node.y - y;
+                    if (Math.sqrt(dx*dx + dy*dy) < 90) { // Min distance
+                        collision = true;
+                        break;
+                    }
+                }
+                attempts++;
+            }
+            
+            graph.nodes.push({ id: letters[i], x: x, y: y });
+        }
+        
+        // Generate Edges (Ensure connected graph via spanning tree, then add random edges)
+        for (let i = 1; i < numNodes; i++) {
+            // Connect to a random previously created node
+            let target = Math.floor(Math.random() * i);
+            graph.edges.push({ source: graph.nodes[i].id, target: graph.nodes[target].id });
+        }
+        
+        // Add a few random extra edges for cross connections
+        const extraEdges = 4;
+        for (let i = 0; i < extraEdges; i++) {
+            let s = Math.floor(Math.random() * numNodes);
+            let t = Math.floor(Math.random() * numNodes);
+            
+            // Avoid self-loops and duplicates
+            if (s !== t) {
+                let sid = graph.nodes[s].id;
+                let tid = graph.nodes[t].id;
+                let exists = graph.edges.some(e => 
+                    (e.source === sid && e.target === tid) || 
+                    (e.source === tid && e.target === sid)
+                );
+                if (!exists) {
+                    graph.edges.push({ source: sid, target: tid });
+                }
+            }
+        }
+        
+        startNodeId = graph.nodes[0].id;
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- UI Rendering ---
+    function renderState(state) {
+        // Render Explanation
+        explanationEl.textContent = state.msg;
+        
+        // Color explanations based on phase
+        if (state.phase === 'visit') {
+            explanationEl.className = "p-4 bg-yellow-50 border-t border-yellow-200 border-l-4 border-l-yellow-400 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-yellow-800";
+        } else if (state.phase === 'done') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else {
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Update Metrics
+        metricVisited.textContent = state.processed.size;
+        metricQueueSize.textContent = state.queue.length;
+        
+        if (state.traversalOrder.length === 0) {
+            metricOrder.innerHTML = '<span class="text-slate-400 font-normal italic">None yet</span>';
+        } else {
+            metricOrder.innerHTML = state.traversalOrder.map(id => 
+                `<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-300 shadow-sm">${id}</span>`
+            ).join('<span class="text-slate-400 mt-1">→</span>');
+        }
+
+        // Render Graph (SVG)
+        graphSvg.innerHTML = '';
+        
+        // Draw Edges First
+        graph.edges.forEach(edge => {
+            const sNode = graph.nodes.find(n => n.id === edge.source);
+            const tNode = graph.nodes.find(n => n.id === edge.target);
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", sNode.x);
+            line.setAttribute("y1", sNode.y);
+            line.setAttribute("x2", tNode.x);
+            line.setAttribute("y2", tNode.y);
+            
+            // Check if edge is active (between current and a neighbor being added)
+            let isActivelyExplored = false;
+            if (state.phase === 'enqueue' && state.current !== null) {
+                if ((edge.source === state.current && state.newNeighbors.includes(edge.target)) ||
+                    (edge.target === state.current && state.newNeighbors.includes(edge.source))) {
+                    isActivelyExplored = true;
+                }
+            }
+            
+            if (isActivelyExplored) {
+                line.setAttribute("stroke", "#3b82f6"); // Blue
+                line.setAttribute("stroke-width", "4");
+            } else {
+                line.setAttribute("stroke", "#cbd5e1"); // Slate-300
+                line.setAttribute("stroke-width", "2");
+            }
+            
+            line.classList.add("edge-line");
+            graphSvg.appendChild(line);
+        });
+
+        // Draw Nodes
+        graph.nodes.forEach(node => {
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            circle.setAttribute("r", "20");
+            circle.classList.add("node-circle");
+            
+            let fill = "#ffffff";
+            let stroke = "#cbd5e1";
+            let strokeWidth = "2";
+            let textColor = "#475569";
+
+            if (node.id === state.current) {
+                // Current Node
+                fill = "#fde047"; // Yellow 300
+                stroke = "#ca8a04"; // Yellow 600
+                strokeWidth = "4";
+                textColor = "#713f12"; // Yellow 900
+            } else if (state.processed.has(node.id)) {
+                // Visited/Processed
+                fill = "#dcfce7"; // Green 100
+                stroke = "#16a34a"; // Green 600
+                strokeWidth = "2";
+                textColor = "#166534"; // Green 800
+            } else if (state.queuedSet.has(node.id)) {
+                // In Queue
+                fill = "#dbeafe"; // Blue 100
+                stroke = "#3b82f6"; // Blue 500
+                strokeWidth = "3";
+                textColor = "#1e40af"; // Blue 800
+            }
+
+            circle.setAttribute("fill", fill);
+            circle.setAttribute("stroke", stroke);
+            circle.setAttribute("stroke-width", strokeWidth);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", node.x);
+            text.setAttribute("y", node.y);
+            text.setAttribute("dy", "0.35em");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("fill", textColor);
+            text.setAttribute("font-weight", "bold");
+            text.setAttribute("font-family", "sans-serif");
+            text.textContent = node.id;
+
+            group.appendChild(circle);
+            group.appendChild(text);
+            graphSvg.appendChild(group);
+        });
+
+        // Render Queue
+        queueContainer.innerHTML = '';
+        if (state.queue.length === 0) {
+            queueContainer.innerHTML = '<div class="text-slate-400 text-center text-sm mt-4 italic flex items-center justify-center h-full">Queue is empty</div>';
+        } else {
+            state.queue.forEach((item, index) => {
+                const el = document.createElement('div');
+                // The front of the queue is index 0
+                const isFront = index === 0;
+                
+                el.className = `queue-item p-3 rounded-lg border flex justify-between items-center shadow-sm ${
+                    isFront ? 'bg-blue-100 border-blue-400 font-bold' : 'bg-white border-slate-200'
+                }`;
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center border-2 border-blue-500 bg-blue-50 text-blue-800 font-bold">
+                            ${item}
+                        </div>
+                        <span class="${isFront ? 'text-blue-800' : 'text-slate-600'}">Node ${item}</span>
+                    </div>
+                    ${isFront ? '<span class="text-xs bg-blue-500 text-white px-2 py-1 rounded">Next to pop</span>' : ''}
+                `;
+                queueContainer.appendChild(el);
+            });
+        }
+    }
+
+    // --- BFS Algorithm Generator ---
+    function* getBfsSteps(graphData, startNode) {
+        let queue = [startNode];
+        let queuedSet = new Set([startNode]);
+        let processed = new Set();
+        let traversalOrder = [];
+
+        yield { 
+            phase: 'start', queue: [...queue], queuedSet: new Set(queuedSet), processed: new Set(processed), 
+            current: null, traversalOrder: [...traversalOrder], newNeighbors: [],
+            msg: `Initializing BFS. Node ${startNode} added to the queue.` 
+        };
+
+        while(queue.length > 0) {
+            // Dequeue
+            let current = queue.shift();
+            queuedSet.delete(current);
+
+            yield { 
+                phase: 'visit', queue: [...queue], queuedSet: new Set(queuedSet), processed: new Set(processed), 
+                current, traversalOrder: [...traversalOrder], newNeighbors: [],
+                msg: `Dequeued ${current}. It is now the Current Node (Yellow).` 
+            };
+
+            // Find neighbors
+            let neighbors = graphData.edges
+                .filter(e => e.source === current || e.target === current)
+                .map(e => e.source === current ? e.target : e.source)
+                .sort(); // Sort alphabetically for deterministic output
+
+            let newlyAdded = [];
+            for (let n of neighbors) {
+                if (!processed.has(n) && !queuedSet.has(n) && n !== current) {
+                    queue.push(n);
+                    queuedSet.add(n);
+                    newlyAdded.push(n);
+                }
+            }
+
+            if (newlyAdded.length > 0) {
+                yield { 
+                    phase: 'enqueue', queue: [...queue], queuedSet: new Set(queuedSet), processed: new Set(processed), 
+                    current, traversalOrder: [...traversalOrder], newNeighbors: newlyAdded,
+                    msg: `Adding unvisited neighbors of ${current} (${newlyAdded.join(', ')}) to the queue.` 
+                };
+            } else {
+                yield { 
+                    phase: 'skip', queue: [...queue], queuedSet: new Set(queuedSet), processed: new Set(processed), 
+                    current, traversalOrder: [...traversalOrder], newNeighbors: [],
+                    msg: `All neighbors of ${current} are already visited or queued.` 
+                };
+            }
+
+            // Finish processing current
+            processed.add(current);
+            traversalOrder.push(current);
+
+            yield { 
+                phase: 'done_current', queue: [...queue], queuedSet: new Set(queuedSet), processed: new Set(processed), 
+                current: null, traversalOrder: [...traversalOrder], newNeighbors: [],
+                msg: `Finished exploring node ${current}. Marked as Visited (Green).` 
+            };
+        }
+
+        yield { 
+            phase: 'done', queue: [], queuedSet: new Set(), processed: new Set(processed), 
+            current: null, traversalOrder: [...traversalOrder], newNeighbors: [],
+            msg: `BFS complete! The queue is empty and all reachable nodes have been visited.` 
+        };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!bfsGenerator) return;
+
+        const result = bfsGenerator.next();
+        
+        if (result.done) {
+            finishBFS();
+            return;
+        }
+
+        renderState(result.value);
+
+        if (isPlaying) {
+            searchTimeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startBFS() {
+        if (!bfsGenerator) {
+            bfsGenerator = getBfsSteps(graph, startNodeId);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseBFS() {
+        isPlaying = false;
+        clearTimeout(searchTimeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseBFS();
+        if (!bfsGenerator) {
+            bfsGenerator = getBfsSteps(graph, startNodeId);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseBFS();
+        bfsGenerator = null;
+        
+        renderState({
+            phase: 'idle',
+            msg: `Graph ready. Click "Start BFS" to begin traversal from node ${startNodeId}.`,
+            queue: [],
+            queuedSet: new Set(),
+            processed: new Set(),
+            current: null,
+            traversalOrder: [],
+            newNeighbors: []
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishBFS() {
+        isPlaying = false;
+        bfsGenerator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = bfsGenerator !== null;
+        
+        btnRandom.disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseBFS;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-amber-500 text-white hover:bg-amber-600 w-32 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = "Start BFS";
+            btnStart.onclick = startBFS;
+            btnStart.className = "px-4 py-2 rounded-md font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600 w-32 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("BFS complete");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

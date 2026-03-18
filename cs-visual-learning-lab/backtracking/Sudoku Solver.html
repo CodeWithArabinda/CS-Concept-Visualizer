@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Solver Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* Cell Transitions */
+        .cell-transition {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Sudoku Grid specific borders */
+        .border-thick-r { border-right: 3px solid #1e293b !important; }
+        .border-thick-b { border-bottom: 3px solid #1e293b !important; }
+        .border-thick-l { border-left: 3px solid #1e293b !important; }
+        .border-thick-t { border-top: 3px solid #1e293b !important; }
+
+        /* Status Animations */
+        @keyframes subtle-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .animate-trying {
+            animation: subtle-bounce 0.4s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    Sudoku Solver Visualizer
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Generate Puzzle
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm w-32 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start Solver
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium transition-colors border border-indigo-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="10" max="800" value="150" class="w-20 accent-indigo-600" dir="rtl">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left/Center Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready. Generate a puzzle to begin.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[100px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Steps</div>
+                        <div id="metric-steps" class="text-xl font-bold text-indigo-600 mono">0</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[100px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Backtracks</div>
+                        <div id="metric-backtracks" class="text-xl font-bold text-rose-500 mono">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center gap-6">
+                
+                <!-- Legend -->
+                <div class="flex flex-wrap items-center justify-center gap-4 text-sm font-medium bg-slate-50 py-3 px-5 rounded-lg border border-slate-100 w-full max-w-2xl">
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded border bg-slate-100 text-slate-800 flex items-center justify-center text-[10px] font-bold">#</span> Fixed Cell</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded border bg-yellow-200"></span> Current Cell</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded border bg-white text-purple-600 flex items-center justify-center text-[10px] font-bold shadow-inner">#</span> Trying Number</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded border bg-green-200"></span> Valid Placement</div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded border bg-red-300"></span> Backtracking / Conflict</div>
+                </div>
+
+                <!-- Sudoku Grid -->
+                <div class="bg-slate-800 p-1 rounded-lg shadow-lg">
+                    <div id="sudoku-grid" class="grid grid-cols-9 bg-white border-2 border-slate-800 w-full max-w-[450px] aspect-square mx-auto">
+                        <!-- Cells injected via JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel -->
+        <aside class="lg:col-span-1 flex flex-col gap-6 h-fit sticky top-24">
+            
+            <!-- Theory Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                    Backtracking Theory
+                </h2>
+                
+                <div class="space-y-4 text-sm text-slate-600">
+                    <div>
+                        <h3 class="font-bold text-slate-800">What is Backtracking?</h3>
+                        <p class="mt-1">Backtracking is an algorithmic technique for solving problems recursively by trying to build a solution incrementally, one piece at a time. It removes (backtracks) solutions that fail to satisfy the constraints of the problem at any point in time.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-slate-800">Sudoku Constraints</h3>
+                        <p class="mt-1">Before placing a number (1-9) in an empty cell, the algorithm checks three constraints:</p>
+                        <ul class="list-disc pl-5 mt-1 text-slate-500 space-y-1">
+                            <li>Row must not contain the number.</li>
+                            <li>Column must not contain the number.</li>
+                            <li>The 3x3 sub-grid must not contain the number.</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 mt-4">
+                        <h3 class="font-bold text-indigo-900 mb-2 border-b border-indigo-200 pb-1">Complexity Metrics</h3>
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-indigo-700 font-semibold">Time Complexity</span>
+                                <span class="font-mono text-indigo-900 font-bold bg-indigo-100 px-2 py-0.5 rounded">O(9<sup>n</sup>)</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-1">
+                                <span class="text-indigo-700 font-semibold">Space Complexity</span>
+                                <span class="font-mono text-indigo-900 font-bold bg-indigo-100 px-2 py-0.5 rounded">O(n)</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-indigo-600 mt-2 italic leading-tight">* Where <span class="font-mono">n</span> is the number of empty cells. Recursion depth reaches at most 81.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- Pre-defined Puzzles ---
+        const PUZZLES = [
+            [
+                [5,3,0,0,7,0,0,0,0],
+                [6,0,0,1,9,5,0,0,0],
+                [0,9,8,0,0,0,0,6,0],
+                [8,0,0,0,6,0,0,0,3],
+                [4,0,0,8,0,3,0,0,1],
+                [7,0,0,0,2,0,0,0,6],
+                [0,6,0,0,0,0,2,8,0],
+                [0,0,0,4,1,9,0,0,5],
+                [0,0,0,0,8,0,0,7,9]
+            ],
+            [
+                [0,0,0,2,6,0,7,0,1],
+                [6,8,0,0,7,0,0,9,0],
+                [1,9,0,0,0,4,5,0,0],
+                [8,2,0,1,0,0,0,4,0],
+                [0,0,4,6,0,2,9,0,0],
+                [0,5,0,0,0,3,0,2,8],
+                [0,0,9,3,0,0,0,7,4],
+                [0,4,0,0,5,0,0,3,6],
+                [7,0,3,0,1,8,0,0,0]
+            ],
+            [
+                [0,2,0,0,0,0,0,0,0],
+                [0,0,0,6,0,0,0,0,3],
+                [0,7,4,0,8,0,0,0,0],
+                [0,0,0,0,0,3,0,0,2],
+                [0,8,0,0,4,0,0,1,0],
+                [6,0,0,5,0,0,0,0,0],
+                [0,0,0,0,1,0,7,8,0],
+                [5,0,0,0,0,9,0,0,0],
+                [0,0,0,0,0,0,0,4,0]
+            ]
+        ];
+
+        // --- State Management ---
+        let initialGrid = [];
+        let currentGrid = [];
+        
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 150; // ms
+
+        let totalSteps = 0;
+        let totalBacktracks = 0;
+
+        // DOM Elements
+        const gridContainerEl = document.getElementById('sudoku-grid');
+        const stepExplEl = document.getElementById('step-explanation');
+        const metricStepsEl = document.getElementById('metric-steps');
+        const metricBacktracksEl = document.getElementById('metric-backtracks');
+        
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // --- Initialization & Logic ---
+        function init() {
+            generatePuzzle();
+            setupEventListeners();
+        }
+
+        function cloneGrid(grid) {
+            return grid.map(row => [...row]);
+        }
+
+        function generatePuzzle() {
+            stopAutoPlay();
+            const randomIndex = Math.floor(Math.random() * PUZZLES.length);
+            initialGrid = cloneGrid(PUZZLES[randomIndex]);
+            
+            resetVisualizer();
+        }
+
+        function resetVisualizer() {
+            stopAutoPlay();
+            currentGrid = cloneGrid(initialGrid);
+            
+            totalSteps = 0;
+            totalBacktracks = 0;
+            
+            stateGenerator = sudokuSolverGenerator(cloneGrid(initialGrid));
+            
+            renderState({
+                grid: currentGrid,
+                r: -1, c: -1, num: 0,
+                type: 'ready',
+                exp: `Puzzle ready. Click 'Start Solver' to begin.`
+            });
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start Solver`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+        }
+
+        // --- Sudoku Helper Functions ---
+        function isValid(grid, row, col, num) {
+            // Check row
+            for (let x = 0; x <= 8; x++) {
+                if (grid[row][x] === num) return false;
+            }
+            // Check column
+            for (let x = 0; x <= 8; x++) {
+                if (grid[x][col] === num) return false;
+            }
+            // Check 3x3 box
+            let startRow = row - row % 3;
+            let startCol = col - col % 3;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    if (grid[i + startRow][j + startCol] === num) return false;
+                }
+            }
+            return true;
+        }
+
+        function findEmptyCell(grid) {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (grid[r][c] === 0) return [r, c];
+                }
+            }
+            return null;
+        }
+
+        // --- Generator Function for Visualization ---
+        // Using a generator allows pausing execution and yielding the UI state.
+        function* sudokuSolverGenerator(grid) {
+            const emptyCell = findEmptyCell(grid);
+            
+            if (!emptyCell) {
+                yield { grid: cloneGrid(grid), r: -1, c: -1, num: 0, type: 'solved', exp: `Puzzle successfully solved!` };
+                return true;
+            }
+
+            const [r, c] = emptyCell;
+
+            for (let num = 1; num <= 9; num++) {
+                totalSteps++;
+                
+                // 1. Trying a number
+                yield { 
+                    grid: cloneGrid(grid), 
+                    r, c, num, 
+                    type: 'trying', 
+                    exp: `Trying number <span class="text-purple-600 font-bold">${num}</span> in cell (${r+1}, ${c+1}).` 
+                };
+
+                if (isValid(grid, r, c, num)) {
+                    grid[r][c] = num;
+                    
+                    // 2. Valid Placement (temporary state before recursion)
+                    yield { 
+                        grid: cloneGrid(grid), 
+                        r, c, num, 
+                        type: 'valid', 
+                        exp: `<span class="text-emerald-600 font-bold">Valid placement.</span> Moving to next empty cell.` 
+                    };
+
+                    // Recursively attempt to solve
+                    const result = yield* sudokuSolverGenerator(grid);
+                    
+                    if (result) {
+                        return true;
+                    }
+
+                    // 3. Backtracking - if we reach here, the recursive call failed
+                    grid[r][c] = 0;
+                    totalBacktracks++;
+                    
+                    yield { 
+                        grid: cloneGrid(grid), 
+                        r, c, num: 0, 
+                        type: 'backtrack', 
+                        exp: `Dead end reached. <span class="text-rose-600 font-bold">Backtracking</span> to cell (${r+1}, ${c+1}) and removing ${num}.` 
+                    };
+
+                } else {
+                    // 4. Invalid Conflict
+                    yield { 
+                        grid: cloneGrid(grid), 
+                        r, c, num, 
+                        type: 'invalid', 
+                        exp: `Number ${num} <span class="text-rose-600 font-bold">conflicts</span> in row, column, or sub-grid.` 
+                    };
+                }
+            }
+
+            // Exhausted all 9 numbers, trigger backtrack to parent
+            return false;
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { grid, r, c, num, type, exp } = state;
+
+            // Update Metrics
+            stepExplEl.innerHTML = exp;
+            metricStepsEl.innerText = totalSteps;
+            metricBacktracksEl.innerText = totalBacktracks;
+
+            // Render Grid
+            gridContainerEl.innerHTML = '';
+
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    const cellEl = document.createElement('div');
+                    
+                    // Grid Borders for 3x3 blocks
+                    let borderClasses = 'border border-slate-300 ';
+                    if (row === 0) borderClasses += 'border-thick-t ';
+                    if (row === 8) borderClasses += 'border-thick-b ';
+                    if (col === 0) borderClasses += 'border-thick-l ';
+                    if (col === 8) borderClasses += 'border-thick-r ';
+                    if ((row + 1) % 3 === 0 && row !== 8) borderClasses += 'border-thick-b ';
+                    if ((col + 1) % 3 === 0 && col !== 8) borderClasses += 'border-thick-r ';
+
+                    let baseClasses = `flex items-center justify-center text-lg sm:text-2xl font-semibold mono cell-transition ${borderClasses} `;
+                    let cellContent = '';
+
+                    const isTargetCell = (row === r && col === c);
+                    const cellValue = grid[row][col];
+                    const isFixed = initialGrid[row][col] !== 0;
+
+                    if (isFixed) {
+                        baseClasses += 'bg-slate-100 text-slate-800 font-bold ';
+                        cellContent = initialGrid[row][col];
+                    } else {
+                        // Dynamic Cells
+                        if (isTargetCell) {
+                            if (type === 'trying') {
+                                baseClasses += 'bg-yellow-200 text-purple-600 animate-trying shadow-inner ';
+                                cellContent = num;
+                            } else if (type === 'valid') {
+                                baseClasses += 'bg-green-200 text-green-800 scale-105 shadow-md z-10 ';
+                                cellContent = num;
+                            } else if (type === 'invalid') {
+                                baseClasses += 'bg-red-300 text-red-800 scale-95 shadow-inner ';
+                                cellContent = num;
+                            } else if (type === 'backtrack') {
+                                baseClasses += 'bg-red-400 text-white ';
+                                cellContent = '✕'; // show cross briefly
+                            }
+                        } else {
+                            if (cellValue !== 0) {
+                                baseClasses += 'bg-white text-indigo-700 ';
+                                cellContent = cellValue;
+                            } else {
+                                baseClasses += 'bg-white ';
+                            }
+                        }
+                    }
+
+                    // Special fully solved state
+                    if (type === 'solved') {
+                        if (isFixed) {
+                            baseClasses = baseClasses.replace('bg-slate-100', 'bg-emerald-50 text-emerald-900 border-emerald-200');
+                        } else {
+                            baseClasses = baseClasses.replace('bg-white text-indigo-700', 'bg-emerald-100 text-emerald-700 font-bold border-emerald-300');
+                        }
+                    }
+
+                    cellEl.className = baseClasses;
+                    cellEl.innerHTML = cellContent;
+                    
+                    gridContainerEl.appendChild(cellEl);
+                }
+            }
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) resetVisualizer();
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-indigo-600', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-indigo-700', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                autoPlayLoop();
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start Solver`;
+            btnStart.classList.replace('bg-slate-600', 'bg-indigo-600');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-indigo-700');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', () => {
+                generatePuzzle();
+            });
+            
+            btnReset.addEventListener('click', resetVisualizer);
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                // Invert logic: right slider position = less delay = faster
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

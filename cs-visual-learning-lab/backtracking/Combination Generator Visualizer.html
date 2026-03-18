@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combination Generator Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for SVG elements */
+        circle {
+            transition: fill 0.3s ease, stroke 0.3s ease, r 0.3s ease;
+        }
+        text {
+            transition: fill 0.3s ease, font-weight 0.3s ease;
+        }
+        line {
+            transition: stroke 0.3s ease, stroke-width 0.3s ease;
+        }
+        
+        /* Combo box animation */
+        .combo-box {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* List item animation */
+        .combo-item {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Combination Generator Visualizer</h1>
+        <p class="text-slate-500">Visualizing backtracking and element selection for <span class="font-serif italic">n choose k</span></p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <div class="flex flex-wrap gap-5 items-center justify-center">
+            
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-elements" class="text-sm font-semibold text-slate-600">Elements (comma separated)</label>
+                <input type="text" id="input-elements" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-64" value="A, B, C, D">
+            </div>
+
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-k" class="text-sm font-semibold text-slate-600">Combination Size (k)</label>
+                <input type="number" id="input-k" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-24" value="2" min="1" max="7">
+            </div>
+
+            <button class="px-4 py-2 mt-5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-md transition-colors h-[42px]" onclick="applyInputs()">Apply</button>
+
+            <div class="w-px h-10 bg-slate-200 mx-2 mt-5"></div>
+
+            <button id="btn-start" class="px-5 py-2 mt-5 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed w-44 shadow-sm" onclick="startGeneration()">Generate Combinations</button>
+            <button id="btn-next" class="px-4 py-2 mt-5 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 mt-5 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4 mt-5">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="100" max="1500" value="600" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        <!-- Left: Visualization (Tree + Array) -->
+        <div class="xl:col-span-2 flex flex-col gap-6">
+            
+            <!-- Current Selection Box -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col items-center">
+                <div class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Current Selection Array</div>
+                <div class="flex gap-3 justify-center min-h-[60px]" id="current-selection-container">
+                    <!-- Dynamic boxes injected here -->
+                </div>
+            </div>
+
+            <!-- Tree Visualization -->
+            <div class="bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200 relative">
+                <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center flex justify-between px-6 items-center">
+                    <span>Combinatorial Decision Tree</span>
+                    <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full uppercase tracking-wider font-bold">Scroll horizontally if needed</span>
+                </div>
+                
+                <div class="w-full overflow-x-auto bg-slate-50/50 p-6 flex justify-center custom-scrollbar">
+                    <svg id="tree-svg" class="min-h-[400px]" style="min-width: 100%;">
+                        <g id="edges"></g>
+                        <g id="nodes"></g>
+                    </svg>
+                </div>
+                
+                <!-- Explanation Panel -->
+                <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                    Click "Generate Combinations" to start the backtracking algorithm.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Metrics & Legend -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-4 pb-2 border-b-2 border-slate-100 text-slate-800">Generation Metrics</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Combinations</div>
+                        <div class="text-3xl font-bold text-green-600 mt-1" id="metric-combos">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Nodes Explored</div>
+                        <div class="text-3xl font-bold text-blue-600 mt-1" id="metric-nodes">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Found Combinations List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-grow min-h-[200px]">
+                <div class="p-3 bg-green-50 border-b border-green-100 font-semibold text-green-800 text-center">
+                    Generated Combinations
+                </div>
+                <div class="p-4 flex flex-wrap gap-2 content-start overflow-y-auto" id="combinations-list">
+                    <div class="text-slate-400 text-sm italic w-full text-center mt-2" id="empty-combos-msg">None generated yet</div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold pb-2 border-b-2 border-slate-100 text-slate-800">Color Legend</h2>
+                
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded-full bg-yellow-400 border-2 border-yellow-600 shadow-sm flex items-center justify-center"></div>
+                    <span>Current Selection / Exploring</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded-full bg-green-500 border-2 border-green-700 shadow-sm flex items-center justify-center"></div>
+                    <span>Completed Combination (k reached)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded-full bg-slate-200 border-2 border-slate-400 shadow-sm flex items-center justify-center"></div>
+                    <span>Visited Node / Backtracked</span>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- Global State ---
+    let elements = ['A', 'B', 'C', 'D'];
+    let kSize = 2;
+    
+    let allNodes = [];
+    let allEdges = [];
+    
+    let generator = null;
+    let isPlaying = false;
+    let timeout = null;
+    let animationSpeed = 600; 
+    
+    // DOM Elements
+    const explanationEl = document.getElementById('step-explanation');
+    const currentSelectionContainer = document.getElementById('current-selection-container');
+    const treeEdgesGroup = document.getElementById('edges');
+    const treeNodesGroup = document.getElementById('nodes');
+    const treeSvg = document.getElementById('tree-svg');
+    const metricCombos = document.getElementById('metric-combos');
+    const metricNodes = document.getElementById('metric-nodes');
+    const combosList = document.getElementById('combinations-list');
+    const emptyCombosMsg = document.getElementById('empty-combos-msg');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+
+    // --- Initialization ---
+    function init() {
+        applyInputs();
+        updateSpeed();
+    }
+
+    function applyInputs() {
+        if (isPlaying) return;
+
+        const elInput = document.getElementById('input-elements').value;
+        const parsedElements = elInput.split(',').map(e => e.trim()).filter(e => e.length > 0);
+        const parsedK = parseInt(document.getElementById('input-k').value, 10);
+
+        if (parsedElements.length === 0) {
+            alert("Please enter at least one element.");
+            return;
+        }
+        if (parsedElements.length > 7) {
+            alert("To keep the visualization performant and readable, please use a maximum of 7 elements.");
+            return;
+        }
+        if (isNaN(parsedK) || parsedK < 1 || parsedK > parsedElements.length) {
+            alert(`Combination size (k) must be between 1 and the number of elements (${parsedElements.length}).`);
+            return;
+        }
+
+        elements = parsedElements;
+        kSize = parsedK;
+        
+        precomputeTree();
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- Precompute SVG Tree Structure ---
+    function precomputeTree() {
+        allNodes = [];
+        allEdges = [];
+        let leafCount = 0;
+
+        function traverse(comboIndices, startIdx) {
+            let id = 'root' + (comboIndices.length ? '-' + comboIndices.join('-') : '');
+            let node = { id, indices: [...comboIndices], children: [] };
+            
+            // Assign Label
+            if (comboIndices.length > 0) {
+                node.label = elements[comboIndices[comboIndices.length - 1]];
+            } else {
+                node.label = "Ø"; // Root
+            }
+            
+            if (comboIndices.length === kSize) {
+                node.x = leafCount * 60; // Horizontal spacing between leaves
+                leafCount++;
+            } else {
+                for (let i = startIdx; i <= elements.length - (kSize - comboIndices.length); i++) {
+                    let child = traverse([...comboIndices, i], i + 1);
+                    node.children.push(child);
+                    allEdges.push({ source: id, target: child.id });
+                }
+                
+                // Center parent over children
+                if(node.children.length > 0) {
+                    node.x = node.children.reduce((sum, c) => sum + c.x, 0) / node.children.length;
+                } else {
+                    node.x = leafCount * 60;
+                    leafCount++;
+                }
+            }
+            node.y = comboIndices.length * 80 + 40; // Vertical spacing
+            
+            allNodes.push(node);
+            return node;
+        }
+
+        traverse([], 0);
+        
+        // Normalize X to fit SVG
+        let minX = Math.min(...allNodes.map(n => n.x));
+        let maxX = Math.max(...allNodes.map(n => n.x));
+        let width = maxX - minX;
+        let height = kSize * 80 + 80;
+        
+        allNodes.forEach(n => { n.x = n.x - minX + 40; }); // 40px left padding
+        
+        treeSvg.style.width = `${Math.max(width + 80, 100)}%`; // Ensure it fills container or scrolls
+        treeSvg.style.minWidth = `${width + 80}px`;
+        treeSvg.style.height = `${height}px`;
+        treeSvg.setAttribute('viewBox', `0 0 ${width + 80} ${height}`);
+    }
+
+    function isNodeInActivePath(nodeId, activeNodeId) {
+        if (!activeNodeId) return false;
+        return activeNodeId === nodeId || activeNodeId.startsWith(nodeId + '-');
+    }
+
+    // --- UI Rendering ---
+    function updateUI(state) {
+        // Render Explanation
+        explanationEl.textContent = state.msg;
+        if (state.phase === 'found') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else if (state.phase === 'backtrack') {
+            explanationEl.className = "p-4 bg-orange-50 border-t border-orange-200 border-l-4 border-l-orange-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-orange-800";
+        } else if (state.phase === 'done') {
+            explanationEl.className = "p-4 bg-blue-50 border-t border-blue-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-blue-800";
+        } else {
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-yellow-400 font-medium text-lg min-h-[70px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Metrics
+        metricCombos.textContent = state.combosFound;
+        metricNodes.textContent = state.nodesExplored;
+
+        // Current Selection Array
+        currentSelectionContainer.innerHTML = '';
+        for (let i = 0; i < kSize; i++) {
+            const val = state.combo[i];
+            const box = document.createElement('div');
+            
+            let bgClass = "bg-white border-slate-300 border-dashed text-slate-400";
+            if (val !== undefined) {
+                if (state.phase === 'found') {
+                    bgClass = "bg-green-500 border-green-600 border-solid text-white shadow-md scale-105";
+                } else if (i === state.combo.length - 1 && state.phase === 'select') {
+                    bgClass = "bg-yellow-400 border-yellow-600 border-solid text-black shadow-sm scale-105";
+                } else {
+                    bgClass = "bg-blue-100 border-blue-300 border-solid text-blue-900";
+                }
+            }
+
+            box.className = `combo-box w-12 h-12 rounded-lg border-2 flex items-center justify-center font-bold text-xl ${bgClass}`;
+            box.textContent = val !== undefined ? val : '';
+            currentSelectionContainer.appendChild(box);
+        }
+
+        // Render Generated Combinations
+        combosList.innerHTML = '';
+        if (state.foundCombos.length === 0) {
+            combosList.appendChild(emptyCombosMsg);
+        } else {
+            state.foundCombos.forEach(combo => {
+                const el = document.createElement('div');
+                el.className = 'combo-item px-3 py-1.5 bg-green-100 text-green-800 rounded-md border border-green-300 font-mono font-bold text-sm shadow-sm';
+                el.textContent = `[${combo.join(', ')}]`;
+                combosList.appendChild(el);
+            });
+            // Auto scroll to bottom
+            combosList.scrollTop = combosList.scrollHeight;
+        }
+
+        // Render Tree Edges
+        treeEdgesGroup.innerHTML = '';
+        allEdges.forEach(edge => {
+            const sNode = allNodes.find(n => n.id === edge.source);
+            const tNode = allNodes.find(n => n.id === edge.target);
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", sNode.x);
+            line.setAttribute("y1", sNode.y);
+            line.setAttribute("x2", tNode.x);
+            line.setAttribute("y2", tNode.y);
+            
+            // Check if edge is in active path
+            if (isNodeInActivePath(edge.target, state.activeNode)) {
+                line.setAttribute("stroke", "#facc15"); // yellow-400
+                line.setAttribute("stroke-width", "4");
+            } else {
+                line.setAttribute("stroke", "#e2e8f0"); // slate-200
+                line.setAttribute("stroke-width", "2");
+            }
+            treeEdgesGroup.appendChild(line);
+        });
+
+        // Render Tree Nodes
+        treeNodesGroup.innerHTML = '';
+        allNodes.forEach(node => {
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            
+            let fill = "#ffffff";
+            let stroke = "#cbd5e1";
+            let strokeWidth = "2";
+            let r = "16";
+            let textColor = "#64748b";
+            let fontWeight = "normal";
+
+            if (node.id === state.activeNode) {
+                // Currently active
+                if (state.phase === 'found') {
+                    fill = "#22c55e"; stroke = "#15803d"; r = "20"; textColor = "#ffffff"; fontWeight = "bold";
+                } else {
+                    fill = "#facc15"; stroke = "#ca8a04"; r = "20"; textColor = "#713f12"; fontWeight = "bold";
+                }
+            } else if (state.completedNodes.has(node.id)) {
+                // Completed combination leaf
+                fill = "#22c55e"; stroke = "#16a34a"; textColor = "#ffffff"; fontWeight = "bold";
+            } else if (isNodeInActivePath(node.id, state.activeNode)) {
+                // Ancestor of active
+                fill = "#fef08a"; stroke = "#eab308"; textColor = "#854d0e";
+            } else if (state.visitedNodes.has(node.id)) {
+                // Visited but not active (backtracked)
+                fill = "#e2e8f0"; stroke = "#94a3b8"; textColor = "#475569";
+            }
+
+            circle.setAttribute("fill", fill);
+            circle.setAttribute("stroke", stroke);
+            circle.setAttribute("stroke-width", strokeWidth);
+            circle.setAttribute("r", r);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", node.x);
+            text.setAttribute("y", node.y);
+            text.setAttribute("dy", "0.35em");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("fill", textColor);
+            text.setAttribute("font-weight", fontWeight);
+            text.setAttribute("font-family", "sans-serif");
+            text.setAttribute("font-size", "14px");
+            text.textContent = node.label;
+
+            group.appendChild(circle);
+            group.appendChild(text);
+            treeNodesGroup.appendChild(group);
+        });
+    }
+
+    // --- Combinations Generator Algorithm ---
+    function* getCombinationSteps(arr, k) {
+        let comboIdxs = [];
+        let comboVals = [];
+        let combosFound = 0;
+        let nodesExplored = 0;
+        
+        let visitedNodes = new Set();
+        let completedNodes = new Set();
+        let foundCombos = [];
+
+        function* backtrack(startIdx, depth, nodeId) {
+            nodesExplored++;
+            visitedNodes.add(nodeId);
+            
+            yield { 
+                phase: 'explore', combo: [...comboVals], nodesExplored, combosFound, 
+                activeNode: nodeId, visitedNodes: new Set(visitedNodes), completedNodes: new Set(completedNodes), foundCombos: [...foundCombos],
+                msg: `Exploring node. Current selection: [${comboVals.join(', ')}]` 
+            };
+
+            // Base case: combination formed
+            if (comboIdxs.length === k) {
+                combosFound++;
+                foundCombos.push([...comboVals]);
+                completedNodes.add(nodeId);
+                yield { 
+                    phase: 'found', combo: [...comboVals], nodesExplored, combosFound, 
+                    activeNode: nodeId, visitedNodes: new Set(visitedNodes), completedNodes: new Set(completedNodes), foundCombos: [...foundCombos],
+                    msg: `Combination formed: [${comboVals.join(', ')}].` 
+                };
+                return;
+            }
+
+            // Iterate over valid candidates
+            for (let i = startIdx; i <= arr.length - (k - comboIdxs.length); i++) {
+                comboIdxs.push(i);
+                comboVals.push(arr[i]);
+                let childNodeId = nodeId === 'root' ? `root-${i}` : `${nodeId}-${i}`;
+                
+                yield { 
+                    phase: 'select', combo: [...comboVals], nodesExplored, combosFound, 
+                    activeNode: childNodeId, visitedNodes: new Set(visitedNodes), completedNodes: new Set(completedNodes), foundCombos: [...foundCombos],
+                    msg: `Selecting element '${arr[i]}'. Moving down the tree.` 
+                };
+
+                // Recurse
+                yield* backtrack(i + 1, depth + 1, childNodeId);
+
+                // Backtrack
+                let removedVal = comboVals.pop();
+                comboIdxs.pop();
+
+                yield { 
+                    phase: 'backtrack', combo: [...comboVals], nodesExplored, combosFound, 
+                    activeNode: nodeId, visitedNodes: new Set(visitedNodes), completedNodes: new Set(completedNodes), foundCombos: [...foundCombos],
+                    msg: `Backtracking: removing '${removedVal}'. Returning to previous state.` 
+                };
+            }
+        }
+
+        yield* backtrack(0, 0, 'root');
+
+        yield { 
+            phase: 'done', combo: [], nodesExplored, combosFound, 
+            activeNode: null, visitedNodes: new Set(visitedNodes), completedNodes: new Set(completedNodes), foundCombos: [...foundCombos],
+            msg: `Algorithm complete! Generated all ${combosFound} combinations.` 
+        };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!generator) return;
+
+        const result = generator.next();
+        
+        if (result.done) {
+            finishGeneration();
+            return;
+        }
+
+        updateUI(result.value);
+
+        if (isPlaying) {
+            timeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startGeneration() {
+        if (!generator) {
+            generator = getCombinationSteps(elements, kSize);
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseGeneration() {
+        isPlaying = false;
+        clearTimeout(timeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseGeneration();
+        if (!generator) {
+            generator = getCombinationSteps(elements, kSize);
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseGeneration();
+        generator = null;
+        
+        updateUI({
+            phase: 'idle',
+            msg: `Ready. Click "Generate Combinations" to start traversing the tree.`,
+            combo: [],
+            nodesExplored: 0,
+            combosFound: 0,
+            activeNode: null,
+            visitedNodes: new Set(),
+            completedNodes: new Set(),
+            foundCombos: []
+        });
+        
+        updateButtonStates();
+    }
+
+    function finishGeneration() {
+        isPlaying = false;
+        generator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = generator !== null;
+        
+        // Disable inputs while running
+        document.getElementById('input-elements').disabled = isActive;
+        document.getElementById('input-k').disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseGeneration;
+            btnStart.className = "px-5 py-2 mt-5 rounded-md font-bold transition-colors bg-amber-500 text-white hover:bg-amber-600 w-44 shadow-sm";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = isActive ? "Resume Generation" : "Generate Combinations";
+            btnStart.onclick = startGeneration;
+            btnStart.className = "px-5 py-2 mt-5 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 w-44 shadow-sm";
+            
+            const isFinished = explanationEl.textContent.includes("Algorithm complete");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

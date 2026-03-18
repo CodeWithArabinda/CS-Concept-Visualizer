@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Longest Common Subsequence Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for DP table cells */
+        .dp-cell {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .highlight-pulse {
+            animation: pulse-border 1.5s infinite;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
+            70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        }
+        /* Custom scrollbar for large tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">Longest Common Subsequence (LCS)</h1>
+        <p class="text-slate-500">Visualizing 2D Dynamic Programming string matching</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <div class="flex flex-wrap gap-5 items-end justify-center">
+            
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-strA" class="text-sm font-semibold text-slate-600">String A (Rows)</label>
+                <input type="text" id="input-strA" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 font-mono uppercase" value="STONE" maxlength="12">
+            </div>
+
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-strB" class="text-sm font-semibold text-slate-600">String B (Columns)</label>
+                <input type="text" id="input-strB" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 font-mono uppercase" value="LONGEST" maxlength="12">
+            </div>
+
+            <button class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-md transition-colors h-[42px]" onclick="applyInputs()">Apply</button>
+        </div>
+
+        <div class="w-full h-px bg-slate-200 my-1"></div>
+
+        <div class="flex flex-wrap gap-4 items-center justify-center">
+            <button id="btn-start" class="px-6 py-2 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm w-40" onclick="startGeneration()">Start DP</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="100" max="2000" value="800" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        <!-- Left: DP Table Visualization -->
+        <div class="xl:col-span-2 flex flex-col gap-6">
+            
+            <div class="bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+                <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center flex justify-between px-6 items-center">
+                    <span>DP Table (String A × String B)</span>
+                </div>
+                
+                <div class="w-full overflow-x-auto custom-scrollbar bg-slate-50 p-6 flex justify-center items-center min-h-[400px]">
+                    <div id="table-container" class="inline-block shadow-sm rounded border border-slate-300 bg-white">
+                        <!-- DP Table injected here -->
+                    </div>
+                </div>
+                
+                <!-- Explanation Panel -->
+                <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                    Click "Start DP" to begin filling the table.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Metrics, Legend, Educational -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-4 pb-2 border-b-2 border-slate-100 text-slate-800">DP Metrics</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Cells Computed</div>
+                        <div class="text-3xl font-bold text-blue-600 mt-1" id="metric-cells">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">LCS Length</div>
+                        <div class="text-3xl font-bold text-green-600 mt-1" id="metric-lcs-len">-</div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center mt-4">
+                    <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Discovered LCS</div>
+                    <div class="text-xl font-bold font-mono text-slate-800 mt-1 min-h-[28px]" id="metric-lcs-str">
+                        <span class="text-slate-400 font-normal italic text-sm">Pending...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold pb-2 border-b-2 border-slate-100 text-slate-800">Color Legend</h2>
+                
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded bg-green-400 border border-green-600 shadow-sm flex items-center justify-center text-xs font-bold text-white">✓</div>
+                    <span>Matching Characters (<span class="font-mono text-xs">+1</span>)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded bg-yellow-300 border border-yellow-500 shadow-sm flex items-center justify-center text-xs font-bold text-yellow-800">M</div>
+                    <span>No Match - Taking Max</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded bg-blue-200 border border-blue-400 shadow-sm flex items-center justify-center text-xs font-bold text-blue-800">D</div>
+                    <span>Dependency Cell(s)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium mt-2 pt-2 border-t border-slate-100">
+                    <div class="w-6 h-6 rounded bg-white border-2 border-slate-800 highlight-pulse shadow-sm"></div>
+                    <span>Current Cell computing</span>
+                </div>
+            </div>
+
+            <!-- Educational Panel -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600 leading-relaxed flex-grow">
+                <h2 class="text-base font-bold mb-2 text-slate-800">String Matching Logic</h2>
+                <p class="mb-3">
+                    We compare substrings of <span class="font-mono font-bold">A</span> and <span class="font-mono font-bold">B</span>. For each cell <code>dp[i][j]</code>, we look at <code>A[i-1]</code> and <code>B[j-1]</code>:
+                </p>
+                
+                <div class="bg-slate-100 p-3 rounded-md border border-slate-200 font-mono text-[11px] mb-3 shadow-inner overflow-x-auto leading-loose">
+                    <span class="text-slate-500">// If characters match:</span><br>
+                    <span class="text-green-700 font-bold">if</span> (A[i-1] == B[j-1]) {<br>
+                    &nbsp;&nbsp;dp[i][j] = <span class="text-blue-600 font-bold">dp[i-1][j-1]</span> + 1;<br>
+                    }<br>
+                    <span class="text-slate-500">// If characters do not match:</span><br>
+                    <span class="text-yellow-700 font-bold">else</span> {<br>
+                    &nbsp;&nbsp;dp[i][j] = max(<span class="text-blue-600 font-bold">dp[i-1][j]</span>, <span class="text-blue-600 font-bold">dp[i][j-1]</span>);<br>
+                    }
+                </div>
+                
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Match:</strong> We extend the longest common subsequence found so far (from the diagonal).</li>
+                    <li><strong>No Match:</strong> We carry forward the best sequence found either by ignoring the current char of A (top) or B (left).</li>
+                </ul>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- Global State ---
+    let strA = "STONE";
+    let strB = "LONGEST";
+    let M = strA.length;
+    let N = strB.length;
+    
+    let generator = null;
+    let isPlaying = false;
+    let timeout = null;
+    let animationSpeed = 800; 
+    
+    // DOM Elements
+    const explanationEl = document.getElementById('step-explanation');
+    const tableContainer = document.getElementById('table-container');
+    const metricCells = document.getElementById('metric-cells');
+    const metricLcsLen = document.getElementById('metric-lcs-len');
+    const metricLcsStr = document.getElementById('metric-lcs-str');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+
+    // --- Initialization ---
+    function init() {
+        applyInputs();
+        updateSpeed();
+    }
+
+    function applyInputs() {
+        if (isPlaying) return;
+
+        let inputA = document.getElementById('input-strA').value.trim().toUpperCase();
+        let inputB = document.getElementById('input-strB').value.trim().toUpperCase();
+
+        if (inputA.length === 0 || inputB.length === 0) {
+            alert("Please enter both strings.");
+            return;
+        }
+        if (inputA.length > 12 || inputB.length > 12) {
+            alert("Please limit strings to 12 characters so the DP table fits nicely on screen.");
+            return;
+        }
+
+        strA = inputA;
+        strB = inputB;
+        M = strA.length;
+        N = strB.length;
+        
+        // Force uppercase back to inputs
+        document.getElementById('input-strA').value = strA;
+        document.getElementById('input-strB').value = strB;
+        
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- Create Static Table Layout ---
+    function createEmptyTable() {
+        tableContainer.innerHTML = '';
+        const table = document.createElement('table');
+        table.className = "w-full text-center border-collapse font-mono text-sm";
+        
+        // Header Row (String B)
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.className = "bg-slate-100 border-b-2 border-slate-300 text-slate-700 font-bold";
+        
+        // Corner cells
+        let th = document.createElement('th');
+        th.className = "p-2 border-r border-slate-300 w-12";
+        th.innerHTML = "";
+        headerRow.appendChild(th);
+
+        th = document.createElement('th');
+        th.className = "p-2 border-r border-slate-300 w-12 text-slate-400";
+        th.innerHTML = "0";
+        headerRow.appendChild(th);
+        
+        for (let j = 0; j < N; j++) {
+            th = document.createElement('th');
+            th.className = "p-2 w-12 border-r border-slate-300 last:border-r-0 text-blue-700 font-black text-lg";
+            th.textContent = strB[j];
+            headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Body Rows (String A)
+        const tbody = document.createElement('tbody');
+        for (let i = 0; i <= M; i++) {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-slate-200 last:border-b-0";
+            
+            // Row Label
+            const rowLabel = document.createElement('td');
+            rowLabel.className = "p-2 border-r-2 border-slate-300 bg-slate-100 font-black text-lg text-rose-700";
+            if (i === 0) {
+                rowLabel.textContent = "0";
+                rowLabel.className = "p-2 border-r-2 border-slate-300 bg-slate-100 font-bold text-slate-400";
+            } else {
+                rowLabel.textContent = strA[i-1];
+            }
+            tr.appendChild(rowLabel);
+
+            // DP Cells
+            for (let j = 0; j <= N; j++) {
+                const td = document.createElement('td');
+                td.id = `cell-${i}-${j}`;
+                td.className = "dp-cell p-2 border-r border-slate-200 last:border-r-0 h-12 w-12 font-bold text-slate-400 bg-white relative transition-colors";
+                td.textContent = ""; 
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+    }
+
+    // --- UI Rendering ---
+    function updateUI(state) {
+        // Explanation text formatting
+        explanationEl.innerHTML = state.msg;
+        if (state.phase === 'match') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else if (state.phase === 'nomatch') {
+            explanationEl.className = "p-4 bg-yellow-50 border-t border-yellow-200 border-l-4 border-l-yellow-400 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-yellow-800";
+        } else if (state.phase === 'done') {
+            explanationEl.className = "p-4 bg-blue-50 border-t border-blue-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-blue-800";
+        } else {
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-slate-400 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Metrics
+        metricCells.textContent = state.cellsComputed || 0;
+        if (state.lcsLen !== undefined) {
+            metricLcsLen.textContent = state.lcsLen;
+        }
+        if (state.lcsStr !== undefined && state.lcsStr !== "") {
+            metricLcsStr.innerHTML = `<span class="bg-blue-100 text-blue-800 px-3 py-1 rounded border border-blue-300 shadow-sm tracking-[0.2em]">${state.lcsStr}</span>`;
+        }
+
+        // Fast update for all cells
+        for (let i = 0; i <= M; i++) {
+            for (let j = 0; j <= N; j++) {
+                const td = document.getElementById(`cell-${i}-${j}`);
+                
+                // Get value from state DP table
+                const val = state.table[i][j];
+                if (val !== '') {
+                    td.textContent = val;
+                }
+
+                // Base classes
+                let classes = "dp-cell p-2 border-r border-slate-200 last:border-r-0 h-12 w-12 font-bold relative z-0 flex items-center justify-center";
+                
+                if (val === '') {
+                    classes += " bg-white text-slate-300"; // Uncomputed
+                } else {
+                    classes += " bg-slate-50 text-slate-600"; // Previously computed base
+                }
+
+                // Check if this cell is part of the final path
+                let isPath = false;
+                if (state.path) {
+                    isPath = state.path.some(p => p.r === i && p.c === j);
+                }
+
+                if (isPath && state.phase === 'done') {
+                    // Highlight final backtrack path
+                    classes = classes.replace('bg-slate-50', 'bg-blue-100').replace('text-slate-600', 'text-blue-900 border-blue-300 shadow-sm z-10 scale-[1.05]');
+                }
+
+                // Current active cell computation
+                if (state.i === i && state.j === j) {
+                    classes = classes.replace('bg-white', '').replace('bg-slate-50', '').replace('text-slate-300', '').replace('text-slate-600', '');
+                    classes += " bg-white border-2 border-slate-800 highlight-pulse shadow-md z-20 scale-105 text-black";
+                    
+                    if (state.phase === 'match') {
+                        classes = classes.replace('bg-white', 'bg-green-400').replace('text-black', 'text-white border-green-600').replace('highlight-pulse', '');
+                    } else if (state.phase === 'nomatch') {
+                        classes = classes.replace('bg-white', 'bg-yellow-300').replace('text-black', 'text-yellow-900 border-yellow-500').replace('highlight-pulse', '');
+                    }
+                }
+                else if (state.deps) {
+                    // Check if cell is a dependency
+                    const isDep = state.deps.some(d => d.r === i && d.c === j);
+                    if (isDep) {
+                        classes = classes.replace('bg-slate-50', 'bg-blue-200').replace('text-slate-600', 'text-blue-900 shadow-inner z-10 scale-[1.02] border border-blue-400');
+                        td.innerHTML = `${val} <span class="absolute top-0 right-0.5 text-[8px] text-blue-800 opacity-70 font-sans">D</span>`;
+                    }
+                }
+                
+                td.className = classes;
+            }
+        }
+    }
+
+    // --- DP Generator Algorithm ---
+    function* getDpSteps() {
+        let dp = Array(M + 1).fill().map(() => Array(N + 1).fill(''));
+        let cellsComputed = 0;
+
+        // Base cases: 0 for row 0 and col 0
+        for(let i = 0; i <= M; i++) {
+            dp[i][0] = 0;
+            cellsComputed++;
+        }
+        for(let j = 0; j <= N; j++) {
+            if(dp[0][j] === '') cellsComputed++; // avoid double counting 0,0
+            dp[0][j] = 0;
+        }
+
+        yield { 
+            phase: 'init', table: dp, i: -1, j: -1, cellsComputed,
+            msg: `Initialized base cases: row 0 and col 0 are all 0 (empty string matches length 0).` 
+        };
+
+        // DP Table Fill
+        for (let i = 1; i <= M; i++) {
+            for (let j = 1; j <= N; j++) {
+                
+                let charA = strA[i-1];
+                let charB = strB[j-1];
+
+                yield { 
+                    phase: 'compare', table: dp, i, j, cellsComputed,
+                    msg: `Comparing A[${i-1}] <strong>'${charA}'</strong> with B[${j-1}] <strong>'${charB}'</strong>.`
+                };
+
+                cellsComputed++;
+
+                if (charA === charB) {
+                    dp[i][j] = dp[i-1][j-1] + 1;
+                    yield { 
+                        phase: 'match', table: dp, i, j, deps: [{r: i-1, c: j-1}], cellsComputed,
+                        msg: `<strong>Match!</strong> Both are '${charA}'.<br> dp[${i}][${j}] = dp[${i-1}][${j-1}] + 1 = <span class="bg-green-200 px-1 rounded text-green-900 font-bold">${dp[i][j]}</span>.`
+                    };
+                } else {
+                    dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+                    yield { 
+                        phase: 'nomatch', table: dp, i, j, deps: [{r: i-1, c: j}, {r: i, c: j-1}], cellsComputed,
+                        msg: `<strong>No Match.</strong> Taking max of top or left dependency.<br> max(${dp[i-1][j]}, ${dp[i][j-1]}) = <span class="bg-yellow-200 px-1 rounded text-yellow-900 font-bold">${dp[i][j]}</span>.`
+                    };
+                }
+            }
+        }
+        
+        // Backtrack to find the actual LCS string
+        let r = M, c = N;
+        let lcsStrArray = [];
+        let path = [{r, c}]; // Keep track of cells to highlight the optimal path
+
+        while (r > 0 && c > 0) {
+            if (strA[r-1] === strB[c-1]) {
+                lcsStrArray.push(strA[r-1]);
+                r--; c--;
+            } else if (dp[r-1][c] > dp[r][c-1]) {
+                r--;
+            } else {
+                c--;
+            }
+            path.push({r, c});
+        }
+        
+        let lcsStr = lcsStrArray.reverse().join('');
+
+        yield { 
+            phase: 'done', table: dp, i: -1, j: -1, cellsComputed, lcsLen: dp[M][N], lcsStr: lcsStr, path: path,
+            msg: `<strong>DP complete!</strong> <br>The Longest Common Subsequence length is <strong>${dp[M][N]}</strong>. Backtracked path highlighted in blue.` 
+        };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!generator) return;
+
+        const result = generator.next();
+        
+        if (result.done) {
+            finishGeneration();
+            return;
+        }
+
+        updateUI(result.value);
+
+        if (isPlaying) {
+            timeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startGeneration() {
+        if (!generator) {
+            generator = getDpSteps();
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseGeneration() {
+        isPlaying = false;
+        clearTimeout(timeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseGeneration();
+        if (!generator) {
+            generator = getDpSteps();
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseGeneration();
+        generator = null;
+        
+        createEmptyTable();
+        
+        let emptyTable = Array(M + 1).fill().map(() => Array(N + 1).fill(''));
+        updateUI({
+            phase: 'idle',
+            msg: `Initialization ready. Click "Start DP" to begin the algorithm.`,
+            table: emptyTable,
+            i: -1, j: -1,
+            cellsComputed: 0
+        });
+        
+        metricLcsLen.textContent = "-";
+        metricLcsStr.innerHTML = '<span class="text-slate-400 font-normal italic text-sm">Pending...</span>';
+        updateButtonStates();
+    }
+
+    function finishGeneration() {
+        isPlaying = false;
+        generator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = generator !== null;
+        
+        document.getElementById('input-strA').disabled = isActive;
+        document.getElementById('input-strB').disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseGeneration;
+            btnStart.className = "px-6 py-2 rounded-md font-bold transition-colors bg-amber-500 text-white hover:bg-amber-600 shadow-sm w-40";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = isActive ? "Resume DP" : "Start DP";
+            btnStart.onclick = startGeneration;
+            btnStart.className = "px-6 py-2 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 shadow-sm w-40";
+            
+            const isFinished = explanationEl.textContent.includes("DP complete");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

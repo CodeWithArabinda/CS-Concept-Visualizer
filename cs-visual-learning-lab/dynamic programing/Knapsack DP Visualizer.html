@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0/1 Knapsack DP Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for DP table cells */
+        .dp-cell {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .highlight-pulse {
+            animation: pulse-border 1.5s infinite;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
+            70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 leading-relaxed p-5 font-sans min-h-screen">
+
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <header class="text-center mb-2">
+        <h1 class="text-3xl font-bold mb-2 text-slate-900">0/1 Knapsack DP Visualizer</h1>
+        <p class="text-slate-500">Visualizing Dynamic Programming table filling and decision making</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col gap-4 border border-slate-200">
+        <div class="flex flex-wrap gap-5 items-end justify-center">
+            
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-weights" class="text-sm font-semibold text-slate-600">Item Weights (comma sep)</label>
+                <input type="text" id="input-weights" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48" value="1, 2, 3">
+            </div>
+
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-values" class="text-sm font-semibold text-slate-600">Item Values (comma sep)</label>
+                <input type="text" id="input-values" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48" value="10, 15, 40">
+            </div>
+
+            <div class="flex flex-col gap-1 items-start">
+                <label for="input-capacity" class="text-sm font-semibold text-slate-600">Max Capacity (W)</label>
+                <input type="number" id="input-capacity" class="px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-24" value="6" min="1" max="15">
+            </div>
+
+            <button class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-md transition-colors h-[42px]" onclick="applyInputs()">Apply</button>
+        </div>
+
+        <div class="w-full h-px bg-slate-200 my-1"></div>
+
+        <div class="flex flex-wrap gap-4 items-center justify-center">
+            <button id="btn-start" class="px-6 py-2 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm w-40" onclick="startGeneration()">Start DP</button>
+            <button id="btn-next" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="nextStep()" disabled>Next Step</button>
+            <button id="btn-reset" class="px-4 py-2 rounded-md font-semibold transition-colors bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed" onclick="resetVisualizer()">Reset</button>
+
+            <div class="flex items-center gap-2 text-sm font-semibold ml-4">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="200" max="2500" value="1000" dir="rtl" oninput="updateSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <main class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        <!-- Left: DP Table Visualization -->
+        <div class="xl:col-span-2 flex flex-col gap-6">
+            
+            <div class="bg-white rounded-xl shadow-sm flex flex-col overflow-hidden border border-slate-200">
+                <div class="p-3 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 text-center flex justify-between px-6 items-center">
+                    <span>DP Table (Rows: Items, Cols: Capacity)</span>
+                </div>
+                
+                <div class="w-full overflow-x-auto bg-slate-50 p-6 flex justify-center items-center min-h-[400px]">
+                    <div id="table-container" class="inline-block shadow-sm rounded border border-slate-300 bg-white">
+                        <!-- DP Table injected here -->
+                    </div>
+                </div>
+                
+                <!-- Explanation Panel -->
+                <div class="p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300" id="step-explanation">
+                    Click "Start DP" to begin filling the table.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Metrics, Legend, Educational -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            
+            <!-- Algorithm Metrics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold mb-4 pb-2 border-b-2 border-slate-100 text-slate-800">DP Metrics</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Cells Computed</div>
+                        <div class="text-3xl font-bold text-blue-600 mt-1" id="metric-cells">0</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                        <div class="text-slate-500 font-semibold text-xs uppercase tracking-wider">Optimal Value</div>
+                        <div class="text-3xl font-bold text-green-600 mt-1" id="metric-optimal">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold pb-2 border-b-2 border-slate-100 text-slate-800">Color Legend</h2>
+                
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded bg-yellow-300 border border-yellow-500 shadow-sm flex items-center justify-center text-xs font-bold text-yellow-800">E</div>
+                    <span>Exclude Case Value (<span class="font-mono text-xs">dp[i-1][w]</span>)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded bg-blue-300 border border-blue-500 shadow-sm flex items-center justify-center text-xs font-bold text-blue-800">I</div>
+                    <span>Include Case Value (<span class="font-mono text-xs">val + dp[i-1][w-wt]</span>)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium">
+                    <div class="w-6 h-6 rounded bg-green-400 border border-green-600 shadow-sm flex items-center justify-center text-xs font-bold text-white">✓</div>
+                    <span>Chosen Optimal Value (Max)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm font-medium mt-2 pt-2 border-t border-slate-100">
+                    <div class="w-6 h-6 rounded bg-white border-2 border-slate-800 highlight-pulse shadow-sm"></div>
+                    <span>Current Cell computing</span>
+                </div>
+            </div>
+
+            <!-- Educational Panel -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-sm text-slate-600 leading-relaxed flex-grow">
+                <h2 class="text-base font-bold mb-2 text-slate-800">DP State Relation</h2>
+                <p class="mb-3">
+                    For every item <span class="font-mono font-bold">i</span> and capacity <span class="font-mono font-bold">w</span>, we make a decision:
+                </p>
+                
+                <div class="bg-slate-100 p-3 rounded-md border border-slate-200 font-mono text-xs mb-3 shadow-inner overflow-x-auto">
+                    dp[i][w] = max(<br>
+                    &nbsp;&nbsp;<span class="text-yellow-700">dp[i-1][w]</span>, // Exclude<br>
+                    &nbsp;&nbsp;<span class="text-blue-700">val[i] + dp[i-1][w-wt[i]]</span> // Include<br>
+                    )
+                </div>
+                
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Exclude:</strong> We don't take the item. The max value is the same as if we only considered the previous items.</li>
+                    <li><strong>Include:</strong> If the item fits, we add its value to the optimal solution for the <em>remaining capacity</em>.</li>
+                </ul>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- Global State ---
+    let weights = [1, 2, 3];
+    let values = [10, 15, 40];
+    let W = 6;
+    let N = weights.length;
+    
+    let generator = null;
+    let isPlaying = false;
+    let timeout = null;
+    let animationSpeed = 1000; 
+    
+    // DOM Elements
+    const explanationEl = document.getElementById('step-explanation');
+    const tableContainer = document.getElementById('table-container');
+    const metricCells = document.getElementById('metric-cells');
+    const metricOptimal = document.getElementById('metric-optimal');
+    
+    // Buttons
+    const btnStart = document.getElementById('btn-start');
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+
+    // --- Initialization ---
+    function init() {
+        applyInputs();
+        updateSpeed();
+    }
+
+    function applyInputs() {
+        if (isPlaying) return;
+
+        const wInput = document.getElementById('input-weights').value.split(',').map(e => parseInt(e.trim(), 10));
+        const vInput = document.getElementById('input-values').value.split(',').map(e => parseInt(e.trim(), 10));
+        const capInput = parseInt(document.getElementById('input-capacity').value, 10);
+
+        if (wInput.some(isNaN) || vInput.some(isNaN) || isNaN(capInput)) {
+            alert("Please enter valid positive numbers only.");
+            return;
+        }
+        if (wInput.length !== vInput.length) {
+            alert(`Mismatch! You entered ${wInput.length} weights but ${vInput.length} values.`);
+            return;
+        }
+        if (capInput < 1 || capInput > 20) {
+            alert("For visualization purposes, please keep max capacity between 1 and 20.");
+            return;
+        }
+        if (wInput.length > 10) {
+            alert("Please use up to 10 items to ensure the table fits on screen.");
+            return;
+        }
+
+        weights = wInput;
+        values = vInput;
+        W = capInput;
+        N = weights.length;
+        
+        resetVisualizer();
+    }
+
+    function updateSpeed() {
+        animationSpeed = parseInt(document.getElementById('speed-slider').value, 10);
+    }
+
+    // --- Create Static Table Layout ---
+    function createEmptyTable() {
+        tableContainer.innerHTML = '';
+        const table = document.createElement('table');
+        table.className = "w-full text-center border-collapse";
+        
+        // Header Row (Capacities)
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.className = "bg-slate-100 border-b-2 border-slate-300 text-slate-600 text-xs uppercase";
+        
+        // Corner cell
+        let th = document.createElement('th');
+        th.className = "p-2 border-r border-slate-300 w-24";
+        th.innerHTML = "Item<br>(wt, val)";
+        headerRow.appendChild(th);
+        
+        for (let w = 0; w <= W; w++) {
+            th = document.createElement('th');
+            th.className = "p-2 min-w-[40px] border-r border-slate-300 last:border-r-0";
+            th.innerHTML = `Cap<br>${w}`;
+            headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Body Rows (Items)
+        const tbody = document.createElement('tbody');
+        for (let i = 0; i <= N; i++) {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-slate-200 last:border-b-0";
+            
+            // Row Label
+            const rowLabel = document.createElement('td');
+            rowLabel.className = "p-2 border-r border-slate-300 bg-slate-50 font-semibold text-slate-700 text-xs";
+            if (i === 0) {
+                rowLabel.textContent = "0 (Base)";
+            } else {
+                rowLabel.innerHTML = `${i}<br><span class="text-slate-500 font-normal">(w:${weights[i-1]}, v:${values[i-1]})</span>`;
+            }
+            tr.appendChild(rowLabel);
+
+            // DP Cells
+            for (let w = 0; w <= W; w++) {
+                const td = document.createElement('td');
+                td.id = `cell-${i}-${w}`;
+                td.className = "dp-cell p-2 border-r border-slate-200 last:border-r-0 h-[48px] font-bold text-slate-400 bg-white relative";
+                td.textContent = ""; 
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+    }
+
+    // --- UI Rendering ---
+    function updateUI(state) {
+        // Explanation text formatting based on phase
+        explanationEl.innerHTML = state.msg;
+        if (state.phase === 'exclude') {
+            explanationEl.className = "p-4 bg-yellow-50 border-t border-yellow-200 border-l-4 border-l-yellow-400 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-yellow-800";
+        } else if (state.phase === 'include' || state.phase === 'include_fail') {
+            explanationEl.className = "p-4 bg-blue-50 border-t border-blue-200 border-l-4 border-l-blue-500 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-blue-800";
+        } else if (state.phase === 'decide' || state.phase === 'done') {
+            explanationEl.className = "p-4 bg-green-50 border-t border-green-200 border-l-4 border-l-green-500 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-green-800";
+        } else {
+            explanationEl.className = "p-4 bg-slate-50 border-t border-slate-200 border-l-4 border-l-slate-400 font-medium text-lg min-h-[80px] flex items-center shadow-inner transition-colors duration-300 text-slate-800";
+        }
+
+        // Metrics
+        metricCells.textContent = state.cellsComputed || 0;
+        if (state.optimalValue !== undefined) {
+            metricOptimal.textContent = state.optimalValue;
+        }
+
+        // Fast clean up of all cells
+        for (let r = 0; r <= N; r++) {
+            for (let c = 0; c <= W; c++) {
+                const td = document.getElementById(`cell-${r}-${c}`);
+                
+                // Update text content if it exists in state table
+                const val = state.table[r][c];
+                if (val !== '') {
+                    td.textContent = val;
+                }
+
+                // Reset baseline classes
+                let classes = "dp-cell p-2 border-r border-slate-200 last:border-r-0 h-[48px] font-bold relative z-0";
+                
+                if (val === '') {
+                    classes += " bg-white text-slate-300"; // Uncomputed
+                } else {
+                    classes += " bg-slate-100 text-slate-700"; // Previously computed base
+                }
+
+                // Apply active highlights
+                if (state.i === r && state.w === c) {
+                    // Current computing cell
+                    classes = classes.replace('bg-white', '').replace('bg-slate-100', '').replace('text-slate-300', '').replace('text-slate-700', '');
+                    classes += " bg-white border-2 border-slate-800 highlight-pulse shadow-md z-20 scale-105 text-black";
+                    
+                    if (state.phase === 'decide') {
+                        // Just chose the max
+                        classes = classes.replace('bg-white', 'bg-green-400').replace('text-black', 'text-white border-green-600').replace('highlight-pulse', '');
+                    }
+                }
+                else if (state.excludeRef && state.excludeRef.r === r && state.excludeRef.c === c) {
+                    // Exclude reference cell
+                    classes = classes.replace('bg-slate-100', 'bg-yellow-300').replace('text-slate-700', 'text-yellow-900 shadow-inner z-10 scale-[1.02] border border-yellow-500');
+                    td.innerHTML = `${val} <span class="absolute top-0 right-1 text-[9px] text-yellow-800 opacity-70">E</span>`;
+                }
+                else if (state.includeRef && state.includeRef.r === r && state.includeRef.c === c) {
+                    // Include reference cell
+                    classes = classes.replace('bg-slate-100', 'bg-blue-300').replace('text-slate-700', 'text-blue-900 shadow-inner z-10 scale-[1.02] border border-blue-500');
+                    td.innerHTML = `${val} <span class="absolute top-0 right-1 text-[9px] text-blue-800 opacity-70">I</span>`;
+                }
+                
+                // Set final class
+                td.className = classes;
+            }
+        }
+    }
+
+    // --- DP Generator Algorithm ---
+    function* getDpSteps() {
+        let dp = Array(N + 1).fill().map(() => Array(W + 1).fill(''));
+        let cellsComputed = 0;
+
+        // Initialize row 0 and col 0 (Base cases)
+        for(let i = 0; i <= N; i++) dp[i][0] = 0;
+        for(let w = 0; w <= W; w++) dp[0][w] = 0;
+
+        yield { 
+            phase: 'init', table: dp, i: -1, w: -1, cellsComputed,
+            msg: `Initialized base cases: 0 capacity or 0 items always yield 0 value.` 
+        };
+
+        for (let i = 1; i <= N; i++) {
+            let wt = weights[i-1];
+            let val = values[i-1];
+
+            for (let w = 1; w <= W; w++) {
+                
+                yield { 
+                    phase: 'compute', table: dp, i, w, cellsComputed,
+                    msg: `Checking Item <strong>${i}</strong> (weight: <span class="font-mono">${wt}</span>, value: <span class="font-mono">${val}</span>) against capacity <strong>${w}</strong>.`
+                };
+
+                // Exclude
+                let excludeVal = dp[i-1][w];
+                let excludeRef = { r: i-1, c: w, val: excludeVal };
+                
+                yield { 
+                    phase: 'exclude', table: dp, i, w, excludeRef, cellsComputed,
+                    msg: `<strong>Exclude case:</strong> If we don't take item ${i}, max value is <span class="font-mono bg-yellow-200 px-1 rounded">${excludeVal}</span> (from dp[${i-1}][${w}]).` 
+                };
+
+                // Include
+                let includeVal = -1;
+                let includeRef = null;
+                if (wt <= w) {
+                    includeVal = val + dp[i-1][w - wt];
+                    includeRef = { r: i-1, c: w - wt, val: dp[i-1][w - wt], added: val };
+                    
+                    yield { 
+                        phase: 'include', table: dp, i, w, excludeRef, includeRef, cellsComputed,
+                        msg: `<strong>Include case:</strong> Item fits! Value is ${val} + dp[${i-1}][${w-wt}] = <span class="font-mono bg-blue-200 px-1 rounded">${includeVal}</span>.` 
+                    };
+                } else {
+                    yield { 
+                        phase: 'include_fail', table: dp, i, w, excludeRef, cellsComputed,
+                        msg: `<strong>Include case:</strong> Item weight (${wt}) exceeds current capacity (${w}). Cannot include.` 
+                    };
+                }
+
+                // Decide
+                dp[i][w] = Math.max(excludeVal, includeVal > -1 ? includeVal : -1);
+                cellsComputed++;
+
+                yield { 
+                    phase: 'decide', table: dp, i, w, excludeRef, includeRef, cellsComputed,
+                    msg: `<strong>Decision:</strong> max(${excludeVal}, ${includeVal > -1 ? includeVal : '-'}) = <span class="font-mono bg-green-200 text-green-900 px-1 rounded font-bold">${dp[i][w]}</span>.` 
+                };
+            }
+        }
+        
+        yield { 
+            phase: 'done', table: dp, i: -1, w: -1, cellsComputed, optimalValue: dp[N][W],
+            msg: `<strong>DP complete!</strong> The optimal maximum value for capacity ${W} is <strong>${dp[N][W]}</strong>.` 
+        };
+    }
+
+    // --- Playback Controls ---
+    function executeNextStep() {
+        if (!generator) return;
+
+        const result = generator.next();
+        
+        if (result.done) {
+            finishGeneration();
+            return;
+        }
+
+        updateUI(result.value);
+
+        if (isPlaying) {
+            timeout = setTimeout(() => {
+                requestAnimationFrame(executeNextStep);
+            }, animationSpeed);
+        }
+    }
+
+    function startGeneration() {
+        if (!generator) {
+            generator = getDpSteps();
+        }
+        
+        isPlaying = true;
+        updateButtonStates();
+        executeNextStep();
+    }
+
+    function pauseGeneration() {
+        isPlaying = false;
+        clearTimeout(timeout);
+        updateButtonStates();
+    }
+
+    function nextStep() {
+        pauseGeneration();
+        if (!generator) {
+            generator = getDpSteps();
+        }
+        executeNextStep();
+    }
+
+    function resetVisualizer() {
+        pauseGeneration();
+        generator = null;
+        
+        createEmptyTable();
+        
+        // Initial empty state
+        let emptyTable = Array(N + 1).fill().map(() => Array(W + 1).fill(''));
+        updateUI({
+            phase: 'idle',
+            msg: `Initialization ready. Click "Start DP" to begin filling the table.`,
+            table: emptyTable,
+            i: -1, w: -1,
+            cellsComputed: 0
+        });
+        
+        metricOptimal.textContent = "-";
+        updateButtonStates();
+    }
+
+    function finishGeneration() {
+        isPlaying = false;
+        generator = null;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const isActive = generator !== null;
+        
+        // Disable inputs while running
+        document.getElementById('input-weights').disabled = isActive;
+        document.getElementById('input-values').disabled = isActive;
+        document.getElementById('input-capacity').disabled = isActive;
+        
+        if (isPlaying) {
+            btnStart.textContent = "Pause";
+            btnStart.onclick = pauseGeneration;
+            btnStart.className = "px-6 py-2 rounded-md font-bold transition-colors bg-amber-500 text-white hover:bg-amber-600 shadow-sm w-40";
+            btnNext.disabled = true;
+        } else {
+            btnStart.textContent = isActive ? "Resume DP" : "Start DP";
+            btnStart.onclick = startGeneration;
+            btnStart.className = "px-6 py-2 rounded-md font-bold transition-colors bg-blue-500 text-white hover:bg-blue-600 shadow-sm w-40";
+            
+            const isFinished = explanationEl.textContent.includes("DP complete");
+            
+            btnStart.disabled = isFinished;
+            btnNext.disabled = isFinished;
+        }
+    }
+
+    // Boot up
+    window.onload = init;
+</script>
+
+</body>
+</html>

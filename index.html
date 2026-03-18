@@ -3,319 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CS Concept Visualizer - Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #ec4899;
-            --background: #f8fafc;
-            --card-bg: #ffffff;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--background);
-            color: var(--text-main);
-            line-height: 1.5;
-            padding: 2rem 1rem;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        h1 {
-            font-size: 3rem;
-            font-weight: 800;
-            letter-spacing: -0.025em;
-            margin-bottom: 1rem;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .subtitle {
-            font-size: 1.125rem;
-            color: var(--text-muted);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 1rem;
-            padding: 2rem;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: var(--shadow);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            text-decoration: none;
-            color: inherit;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .card:hover::before {
-            opacity: 1;
-        }
-
-        .card h2 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 0.75rem;
-            color: var(--text-main);
-        }
-
-        .card p {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
-        }
-
-        .card .tag {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background: #f1f5f9;
-            color: var(--primary);
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .card .btn {
-            margin-top: auto;
-            display: inline-flex;
-            align-items: center;
-            font-weight: 600;
-            color: var(--primary);
-            transition: color 0.2s ease;
-        }
-
-        .card:hover .btn {
-            color: var(--primary-dark);
-        }
-
-        .card .btn svg {
-            margin-left: 0.5rem;
-            transition: transform 0.2s ease;
-        }
-
-        .card:hover .btn svg {
-            transform: translateX(4px);
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 6rem;
-            padding: 2rem;
-            border-top: 1px solid #e2e8f0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 640px) {
-            h1 {
-                font-size: 2.25rem;
-            }
-        }
-    </style>
+    <title>CS Visual Learning Lab - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
+        <div class="top-nav">
+            <button class="theme-toggle" id="themeToggle">
+                <span id="themeIcon">🌙</span> <span id="themeText">Dark Mode</span>
+            </button>
+        </div>
+
         <header>
-            <h1>CS Concept Visualizer</h1>
-            <p class="subtitle">Interactive simulations and visualizations of core computer science algorithms and data structures.</p>
+            <h1>CS Visual Learning Lab</h1>
+            <p>Explore and understand algorithms through interactive visualizations.</p>
         </header>
 
-        <main class="grid">
-            <!-- N-Queens -->
-            <a href="N-Queens Algorithm Visualizer.html" class="card">
-                <div>
-                    <span class="tag">Backtracking</span>
-                    <h2>N-Queens Problem</h2>
-                    <p>Visualize the recursive backtracking algorithm to place N queens on an N×N board.</p>
+        <main class="dashboard">
+            <!-- Data Structures -->
+            <section class="category">
+                <h2>Data Structures</h2>
+                <div class="grid">
+                    <a href="data-structures/stack/index.html" class="card">
+                        <div class="icon">📚</div>
+                        <h3>Stack</h3>
+                        <p>LIFO (Last In, First Out) structure.</p>
+                    </a>
+                    <a href="data-structures/queue/index.html" class="card">
+                        <div class="icon">🚶‍♂️</div>
+                        <h3>Queue</h3>
+                        <p>FIFO (First In, First Out) structure.</p>
+                    </a>
+                    <a href="data-structures/linked-list/index.html" class="card">
+                        <div class="icon">🔗</div>
+                        <h3>Linked List</h3>
+                        <p>Linear collection of data elements.</p>
+                    </a>
+                    <a href="data-structures/heap/index.html" class="card">
+                        <div class="icon">⛰️</div>
+                        <h3>Heap</h3>
+                        <p>Tree-based data structure.</p>
+                    </a>
                 </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+            </section>
 
-            <!-- Rat in a Maze -->
-            <a href="Rat in a Maze Algorithm Visualizer.html" class="card">
-                <div>
-                    <span class="tag">Pathfinding</span>
-                    <h2>Rat in a Maze</h2>
-                    <p>Watch as a recursive algorithm finds its way through a randomized maze from start to finish.</p>
+            <!-- Sorting -->
+            <section class="category">
+                <h2>Sorting Algorithms</h2>
+                <div class="grid">
+                    <a href="sorting/bubble-sort/index.html" class="card">
+                        <div class="icon">🧼</div>
+                        <h3>Bubble Sort</h3>
+                        <p>Simple comparison-based sorting.</p>
+                    </a>
+                    <a href="sorting/selection-sort/index.html" class="card">
+                        <div class="icon">🎯</div>
+                        <h3>Selection Sort</h3>
+                        <p>In-place comparison sorting.</p>
+                    </a>
+                    <a href="sorting/quick-sort/index.html" class="card">
+                        <div class="icon">⚡</div>
+                        <h3>Quick Sort</h3>
+                        <p>Efficient divide and conquer algo.</p>
+                    </a>
+                    <a href="sorting/merge-sort/index.html" class="card">
+                        <div class="icon">🧩</div>
+                        <h3>Merge Sort</h3>
+                        <p>Stable divide and conquer sorting.</p>
+                    </a>
                 </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+            </section>
 
-            <!-- Dijkstra's -->
-            <a href="Dijkstra's Shortest Path Algorithm.html" class="card">
-                <div>
-                    <span class="tag">Graph Theory</span>
-                    <h2>Dijkstra's Algorithm</h2>
-                    <p>Interactive visualization of finding the shortest path between nodes in a weighted graph.</p>
+            <!-- Searching -->
+            <section class="category">
+                <h2>Searching</h2>
+                <div class="grid">
+                    <a href="searching/linear-search/index.html" class="card">
+                        <div class="icon">🔍</div>
+                        <h3>Linear Search</h3>
+                        <p>Sequential search through items.</p>
+                    </a>
+                    <a href="searching/binary-search/index.html" class="card">
+                        <div class="icon">⚖️</div>
+                        <h3>Binary Search</h3>
+                        <p>Logarithmic search in sorted list.</p>
+                    </a>
                 </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+            </section>
 
-            <!-- Warshall's -->
-            <a href="Warshall Algorithm Visualizer.html" class="card">
-                <div>
-                    <span class="tag">Dynamic Programming</span>
-                    <h2>Warshall's Algorithm</h2>
-                    <p>Compute the transitive closure of a directed graph step by step using dynamic programming.</p>
+            <!-- Backtracking -->
+            <section class="category">
+                <h2>Backtracking</h2>
+                <div class="grid">
+                    <a href="backtracking/n-queens/index.html" class="card">
+                        <div class="icon">👑</div>
+                        <h3>N-Queens</h3>
+                        <p>Place N queens on a chessboard.</p>
+                    </a>
+                    <a href="backtracking/rat-in-maze/index.html" class="card">
+                        <div class="icon">🐀</div>
+                        <h3>Rat in a Maze</h3>
+                        <p>Find path through a grid maze.</p>
+                    </a>
                 </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+            </section>
 
-            <!-- Bubble Sort -->
-            <a href="Bubble Sort.html" class="card">
-                <div>
-                    <span class="tag">Sorting</span>
-                    <h2>Bubble Sort</h2>
-                    <p>A simple sorting algorithm that repeatedly steps through the list and swaps adjacent elements.</p>
+            <!-- Graph Algorithms -->
+            <section class="category">
+                <h2>Graph Algorithms</h2>
+                <div class="grid">
+                    <a href="graph-algorithms/bfs/index.html" class="card">
+                        <div class="icon">🌐</div>
+                        <h3>BFS</h3>
+                        <p>Breadth-First Search traversal.</p>
+                    </a>
+                    <a href="graph-algorithms/dfs/index.html" class="card">
+                        <div class="icon">🌲</div>
+                        <h3>DFS</h3>
+                        <p>Depth-First Search traversal.</p>
+                    </a>
+                    <a href="graph-algorithms/dijkstra/index.html" class="card">
+                        <div class="icon">🛣️</div>
+                        <h3>Dijkstra</h3>
+                        <p>Shortest path algorithm.</p>
+                    </a>
+                    <a href="graph-algorithms/kruskal/index.html" class="card">
+                        <div class="icon">🏗️</div>
+                        <h3>Kruskal</h3>
+                        <p>Minimum Spanning Tree algorithm.</p>
+                    </a>
+                    <a href="graph-algorithms/warshall/index.html" class="card">
+                        <div class="icon">🔄</div>
+                        <h3>Warshall</h3>
+                        <p>All-pairs shortest path.</p>
+                    </a>
                 </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+            </section>
 
-            <!-- Binary Search -->
-            <a href="BINEARYSEARCH.html" class="card">
-                <div>
-                    <span class="tag">Searching</span>
-                    <h2>Binary Search</h2>
-                    <p>Efficiently find elements in a sorted array by repeatedly dividing the search interval in half.</p>
+            <!-- Operating Systems -->
+            <section class="category">
+                <h2>Operating Systems</h2>
+                <div class="grid">
+                    <a href="operating-systems/cpu-scheduling/index.html" class="card">
+                        <div class="icon">💻</div>
+                        <h3>CPU Scheduling</h3>
+                        <p>Process management algorithms.</p>
+                    </a>
+                    <a href="operating-systems/page-replacement/index.html" class="card">
+                        <div class="icon">📖</div>
+                        <h3>Page Replacement</h3>
+                        <p>Memory management algorithms.</p>
+                    </a>
                 </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
-
-            <!-- Stack -->
-            <a href="Stack.html" class="card">
-                <div>
-                    <span class="tag">Data Structure</span>
-                    <h2>Stack Simulation</h2>
-                    <p>Visualize Last-In-First-Out (LIFO) operations like Push and Pop on a stack structure.</p>
-                </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
-
-            <!-- Linked List -->
-            <a href="linklist.html" class="card">
-                <div>
-                    <span class="tag">Data Structure</span>
-                    <h2>Linked List</h2>
-                    <p>Explore the structure of nodes and pointers in a dynamic linked list implementation.</p>
-                </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
-
-            <!-- Queue -->
-            <a href="queue.html" class="card">
-                <div>
-                    <span class="tag">Data Structure</span>
-                    <h2>Queue Simulation</h2>
-                    <p>Visualize First-In-First-Out (FIFO) operations like Enqueue and Dequeue on a queue structure.</p>
-                </div>
-                <div class="btn">
-                    Launch Visualizer
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.16666 10H15.8333M15.8333 10L10.8333 5M15.8333 10L10.8333 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+            </section>
         </main>
 
         <footer>
-            <p>&copy; 2026 CS-Concept-Visualizer. Built with HTML, CSS, and JavaScript.</p>
+            <p>&copy; 2026 CS Visual Learning Lab. Designed for Clarity.</p>
         </footer>
     </div>
+
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        
+        // Check for saved theme preference or system preference
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Initialize theme
+        if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            updateToggleUI('dark');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            updateToggleUI('light');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateToggleUI(newTheme);
+        });
+
+        function updateToggleUI(theme) {
+            if (theme === 'dark') {
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Light Mode';
+            } else {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Dark Mode';
+            }
+        }
+    </script>
 </body>
 </html>

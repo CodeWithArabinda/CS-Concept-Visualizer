@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prim's Algorithm Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* SVG transition classes */
+        .edge-line {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .node-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Custom scrollbar for frontier list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Edge states */
+        .edge-default { stroke: #e2e8f0; stroke-width: 3; opacity: 0.8; }
+        .edge-considering { stroke: #facc15; stroke-width: 6; opacity: 1; filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.6)); }
+        .edge-mst { stroke: #22c55e; stroke-width: 5; opacity: 1; }
+        .edge-ignored { stroke: #94a3b8; stroke-width: 2; opacity: 0.4; stroke-dasharray: 4,4; }
+
+        .edge-text-default { fill: #94a3b8; font-weight: 500; font-size: 14px; }
+        .edge-text-considering { fill: #854d0e; font-weight: 700; font-size: 18px; }
+        .edge-text-mst { fill: #166534; font-weight: 700; font-size: 16px; }
+        .edge-text-ignored { fill: #94a3b8; font-weight: 500; font-size: 12px; opacity: 0.4; display: none; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                    </svg>
+                    Prim's Algorithm Visualizer
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Generate Graph
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm w-32 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium transition-colors border border-indigo-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="100" max="2500" value="1200" class="w-20 accent-emerald-600" dir="rtl">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left/Center Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready. Click 'Start' to begin growing the MST.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[90px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nodes Visited</div>
+                        <div class="text-xl font-bold text-blue-600 mono"><span id="metric-nodes">0</span>/<span id="metric-total-nodes">0</span></div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[90px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Edges Selected</div>
+                        <div class="text-xl font-bold text-emerald-600 mono"><span id="metric-mst-edges">0</span></div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[90px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MST Weight</div>
+                        <div id="metric-weight" class="text-xl font-bold text-slate-900 mono">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col gap-6">
+                
+                <!-- Legend -->
+                <div class="flex flex-wrap items-center justify-center gap-5 text-sm font-medium bg-slate-50 py-3 rounded-lg border border-slate-100">
+                    <div class="flex items-center gap-2"><span class="w-8 h-1 rounded bg-slate-200"></span> Untouched Edge</div>
+                    <div class="flex items-center gap-2"><span class="w-8 h-1.5 rounded bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.8)]"></span> Current Frontier</div>
+                    <div class="flex items-center gap-2"><span class="w-8 h-1.5 rounded bg-emerald-500"></span> Added to MST</div>
+                    <div class="flex items-center gap-2"><span class="w-8 h-0.5 border-t-2 border-dashed border-slate-400"></span> Ignored (Cycle)</div>
+                </div>
+
+                <!-- Graph Container -->
+                <div class="w-full relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden" style="height: 500px;" id="graph-container">
+                    <!-- SVG for Edges -->
+                    <svg id="edges-svg" class="absolute inset-0 w-full h-full" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+                        <!-- Lines injected via JS -->
+                    </svg>
+                    
+                    <!-- Nodes injected via JS (absolute positioned divs) -->
+                    <div id="nodes-container" class="absolute inset-0 w-full h-full pointer-events-none"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel & Frontier List -->
+        <aside class="lg:col-span-1 flex flex-col gap-6 h-fit sticky top-24">
+            
+            <!-- Frontier Edges List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-80">
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex justify-between items-center">
+                    Frontier Edges
+                    <span class="text-[10px] font-bold text-slate-500 normal-case bg-yellow-100 px-2 py-0.5 rounded text-yellow-800">Considering</span>
+                </h2>
+                <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-2" id="frontier-list">
+                    <div class="text-sm text-slate-400 text-center mt-10 italic">Start the algorithm to view frontier edges.</div>
+                </div>
+            </div>
+
+            <!-- Theory Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                    Algorithm Theory
+                </h2>
+                
+                <div class="space-y-4 text-sm text-slate-600">
+                    <div>
+                        <h3 class="font-bold text-slate-800">The Expanding Tree</h3>
+                        <p class="mt-1">Unlike Kruskal's, which sorts all edges globally, Prim's algorithm is a <strong>Greedy Algorithm</strong> that builds the MST from a single starting node outward.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-slate-800">The Frontier</h3>
+                        <p class="mt-1">At each step, it evaluates the <strong>frontier</strong>: all edges connecting a node currently in the MST to a node outside it. It always picks the smallest weight edge to add.</p>
+                    </div>
+
+                    <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3 mt-4">
+                        <h3 class="font-bold text-emerald-900 mb-2 border-b border-emerald-200 pb-1">Complexity Metrics</h3>
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-emerald-700 font-semibold">Time Complexity</span>
+                                <span class="font-mono text-emerald-900 font-bold bg-emerald-100 px-2 py-0.5 rounded">O(E log V)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-emerald-700 font-semibold">Data Structure</span>
+                                <span class="font-mono text-emerald-900 font-bold bg-emerald-100 px-2 py-0.5 rounded">Priority Queue</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        const SVG_WIDTH = 1000;
+        const SVG_HEIGHT = 600;
+
+        let nodes = [];
+        let edges = [];
+
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 1200; // ms
+
+        // DOM Elements
+        const svgEl = document.getElementById('edges-svg');
+        const nodesContainerEl = document.getElementById('nodes-container');
+        const frontierListEl = document.getElementById('frontier-list');
+        const stepExplEl = document.getElementById('step-explanation');
+        
+        const metricNodesEl = document.getElementById('metric-nodes');
+        const metricTotalNodesEl = document.getElementById('metric-total-nodes');
+        const metricMstEdgesEl = document.getElementById('metric-mst-edges');
+        const metricWeightEl = document.getElementById('metric-weight');
+        
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // --- Initialization & Graph Generation ---
+        function init() {
+            generateGraph();
+            setupEventListeners();
+        }
+
+        function generateGraph() {
+            stopAutoPlay();
+            
+            const numNodes = 7;
+            nodes = [];
+            edges = [];
+            
+            // Labels A-G
+            const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+            
+            // Layout nodes in a circle
+            const centerX = SVG_WIDTH / 2;
+            const centerY = SVG_HEIGHT / 2;
+            const radiusX = 380;
+            const radiusY = 220;
+
+            for (let i = 0; i < numNodes; i++) {
+                const angle = (i / numNodes) * 2 * Math.PI - Math.PI/2; 
+                
+                const jitterX = (Math.random() - 0.5) * 40;
+                const jitterY = (Math.random() - 0.5) * 40;
+
+                nodes.push({
+                    id: i,
+                    label: labels[i],
+                    x: centerX + radiusX * Math.cos(angle) + jitterX,
+                    y: centerY + radiusY * Math.sin(angle) + jitterY,
+                    state: 'unvisited' // 'unvisited', 'visited'
+                });
+            }
+
+            // Generate Edges ensuring full connectivity
+            const unvisited = new Set(nodes.map(n => n.id));
+            const visited = new Set();
+            
+            let current = Array.from(unvisited)[0]; // Start tree from 0 for generation
+            unvisited.delete(current);
+            visited.add(current);
+
+            let edgeIdCounter = 0;
+
+            // Generate spanning tree
+            while (unvisited.size > 0) {
+                let next = Array.from(unvisited)[Math.floor(Math.random() * unvisited.size)];
+                let from = Array.from(visited)[Math.floor(Math.random() * visited.size)];
+                
+                edges.push({
+                    id: edgeIdCounter++,
+                    u: from,
+                    v: next,
+                    weight: Math.floor(Math.random() * 19) + 1,
+                    state: 'default' // 'default', 'considering', 'mst', 'ignored'
+                });
+                
+                unvisited.delete(next);
+                visited.add(next);
+            }
+
+            // Add extra random edges for density
+            const extraEdges = 8;
+            let attempts = 0;
+            while (edges.length < (numNodes - 1) + extraEdges && attempts < 50) {
+                attempts++;
+                let u = Math.floor(Math.random() * numNodes);
+                let v = Math.floor(Math.random() * numNodes);
+                
+                if (u === v) continue;
+                
+                const exists = edges.some(e => (e.u === u && e.v === v) || (e.u === v && e.v === u));
+                if (!exists) {
+                    edges.push({
+                        id: edgeIdCounter++,
+                        u: u,
+                        v: v,
+                        weight: Math.floor(Math.random() * 25) + 5,
+                        state: 'default'
+                    });
+                }
+            }
+            
+            metricTotalNodesEl.innerText = numNodes;
+            
+            resetVisualizer();
+        }
+
+        function resetVisualizer() {
+            stopAutoPlay();
+            
+            // Reset states
+            nodes.forEach(n => n.state = 'unvisited');
+            edges.forEach(e => e.state = 'default');
+
+            stateGenerator = primGenerator();
+            
+            renderState({
+                nodesState: nodes.map(n => ({...n})),
+                edgesState: edges.map(e => ({...e})),
+                frontier: [],
+                explanation: `Graph generated. Click 'Start' to begin growing the MST.`,
+                visitedCount: 0,
+                mstWeight: 0,
+                mstEdgesCount: 0
+            });
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+        }
+
+        // --- Prim's Algorithm Generator ---
+        function* primGenerator() {
+            const V = nodes.length;
+            let visitedSet = new Set();
+            let mstWeight = 0;
+            let mstEdgesCount = 0;
+
+            // Clone states for manipulation
+            let currentNodes = nodes.map(n => ({...n}));
+            let currentEdges = edges.map(e => ({...e}));
+
+            // Step 1: Start from Node 0 (A)
+            let startNodeId = 0;
+            visitedSet.add(startNodeId);
+            currentNodes[startNodeId].state = 'visited';
+
+            yield {
+                nodesState: [...currentNodes],
+                edgesState: currentEdges.map(e=>({...e})),
+                frontier: [],
+                explanation: `Starting from node <strong class="text-emerald-700">${nodes[startNodeId].label}</strong>. Adding it to the MST.`,
+                visitedCount: visitedSet.size,
+                mstWeight, mstEdgesCount
+            };
+
+            while (visitedSet.size < V) {
+                // Determine Frontier edges
+                let frontier = currentEdges.filter(e => 
+                    (visitedSet.has(e.u) && !visitedSet.has(e.v)) || 
+                    (!visitedSet.has(e.u) && visitedSet.has(e.v))
+                );
+
+                // Mark ignored edges (both ends visited, but not in MST)
+                currentEdges.forEach(e => {
+                    if (visitedSet.has(e.u) && visitedSet.has(e.v) && e.state !== 'mst') {
+                        e.state = 'ignored';
+                    }
+                });
+
+                // Highlight frontier edges
+                currentEdges.forEach(e => {
+                    if (frontier.includes(e) && e.state !== 'mst') {
+                        e.state = 'considering';
+                    } else if (e.state === 'considering') {
+                        // Revert if it's no longer a frontier (shouldn't happen logically unless it became ignored)
+                        e.state = 'default'; 
+                    }
+                });
+
+                frontier.sort((a, b) => a.weight - b.weight);
+
+                if (frontier.length === 0) break; // Safeguard
+
+                let minEdge = frontier[0];
+                let uLabel = nodes[minEdge.u].label;
+                let vLabel = nodes[minEdge.v].label;
+
+                yield {
+                    nodesState: [...currentNodes],
+                    edgesState: currentEdges.map(e=>({...e})),
+                    frontier: frontier,
+                    explanation: `Evaluating frontier edges connecting the MST to unvisited nodes. Selecting smallest connecting edge <strong>(${uLabel}, ${vLabel})</strong>.`,
+                    visitedCount: visitedSet.size,
+                    mstWeight, mstEdgesCount
+                };
+
+                // Add to MST
+                let edgeIdx = currentEdges.findIndex(e => e.id === minEdge.id);
+                currentEdges[edgeIdx].state = 'mst';
+                mstWeight += minEdge.weight;
+                mstEdgesCount++;
+
+                let newNodeId = visitedSet.has(minEdge.u) ? minEdge.v : minEdge.u;
+                visitedSet.add(newNodeId);
+                currentNodes[newNodeId].state = 'visited';
+
+                // Reset other frontier edges back to default so they don't stay yellow if they aren't the minimum
+                // Actually we will leave them default so the NEXT step recalculates the frontier.
+                currentEdges.forEach(e => {
+                    if (e.state === 'considering') e.state = 'default';
+                });
+
+                yield {
+                    nodesState: [...currentNodes],
+                    edgesState: currentEdges.map(e=>({...e})),
+                    frontier: [],
+                    explanation: `Added edge <strong>(${uLabel}, ${vLabel})</strong> to MST. Visited new node <strong class="text-emerald-700">${nodes[newNodeId].label}</strong>.`,
+                    visitedCount: visitedSet.size,
+                    mstWeight, mstEdgesCount
+                };
+            }
+
+            // Final cleanup of any remaining default edges
+            currentEdges.forEach(e => {
+                if (visitedSet.has(e.u) && visitedSet.has(e.v) && e.state !== 'mst') {
+                    e.state = 'ignored';
+                }
+            });
+
+            yield {
+                nodesState: [...currentNodes],
+                edgesState: currentEdges.map(e=>({...e})),
+                frontier: [],
+                explanation: `<strong>Algorithm Complete!</strong> All nodes visited. MST formed with weight ${mstWeight}.`,
+                visitedCount: visitedSet.size,
+                mstWeight, mstEdgesCount
+            };
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { nodesState, edgesState, frontier, explanation, visitedCount, mstWeight, mstEdgesCount } = state;
+
+            // Update Metrics
+            stepExplEl.innerHTML = explanation;
+            metricNodesEl.innerText = visitedCount;
+            metricWeightEl.innerText = mstWeight;
+            metricMstEdgesEl.innerText = mstEdgesCount;
+
+            renderGraph(nodesState, edgesState);
+            renderFrontierList(frontier);
+        }
+
+        function renderGraph(currentNodes, currentEdges) {
+            // Render SVG Lines
+            svgEl.innerHTML = '';
+            
+            // Draw order: ignored -> default -> mst -> considering
+            const order = { 'ignored': 0, 'default': 1, 'mst': 2, 'considering': 3 };
+            const sortedForRender = [...currentEdges].sort((a, b) => order[a.state] - order[b.state]);
+
+            sortedForRender.forEach(edge => {
+                const n1 = currentNodes[edge.u];
+                const n2 = currentNodes[edge.v];
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", n1.x);
+                line.setAttribute("y1", n1.y);
+                line.setAttribute("x2", n2.x);
+                line.setAttribute("y2", n2.y);
+                line.setAttribute("class", `edge-line edge-${edge.state}`);
+                
+                const midX = (n1.x + n2.x) / 2;
+                const midY = (n1.y + n2.y) / 2;
+                
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                
+                const bg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                bg.setAttribute("cx", midX);
+                bg.setAttribute("cy", midY - 4);
+                bg.setAttribute("r", edge.state === 'considering' ? 14 : 11);
+                bg.setAttribute("fill", edge.state === 'ignored' ? "transparent" : "#f8fafc");
+                bg.setAttribute("class", "edge-line"); 
+                
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", midX);
+                text.setAttribute("y", midY);
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("class", `edge-line edge-text-${edge.state} mono`);
+                text.textContent = edge.weight;
+
+                g.appendChild(line);
+                if(edge.state !== 'ignored') g.appendChild(bg); // Hide bg for ignored to reduce clutter
+                g.appendChild(text);
+                svgEl.appendChild(g);
+            });
+
+            // Render Nodes (Divs)
+            nodesContainerEl.innerHTML = '';
+            currentNodes.forEach(node => {
+                const el = document.createElement('div');
+                
+                let baseClasses = 'absolute flex items-center justify-center w-10 h-10 rounded-full font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 z-10 node-transition border-2 ';
+                
+                if (node.state === 'visited') {
+                    baseClasses += 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-200/50 scale-110';
+                } else {
+                    baseClasses += 'bg-white text-slate-500 border-slate-300';
+                }
+
+                el.className = baseClasses;
+                el.style.left = `${(node.x / SVG_WIDTH) * 100}%`;
+                el.style.top = `${(node.y / SVG_HEIGHT) * 100}%`;
+                el.innerText = node.label;
+                nodesContainerEl.appendChild(el);
+            });
+        }
+
+        function renderFrontierList(frontier) {
+            frontierListEl.innerHTML = '';
+            
+            if (frontier.length === 0) {
+                frontierListEl.innerHTML = '<div class="text-sm text-slate-400 text-center mt-10 italic">No frontier edges currently.</div>';
+                return;
+            }
+
+            frontier.forEach((edge, index) => {
+                const item = document.createElement('div');
+                const uLabel = nodes[edge.u].label;
+                const vLabel = nodes[edge.v].label;
+                
+                // First element is the greedy choice (minimum)
+                let isMin = index === 0;
+                let baseClass = 'flex justify-between items-center p-2 rounded border transition-colors ';
+                
+                if (isMin) {
+                    baseClass += 'bg-yellow-100 border-yellow-400 text-yellow-900 font-bold shadow-sm ring-1 ring-yellow-400';
+                } else {
+                    baseClass += 'bg-slate-50 border-slate-200 text-slate-600';
+                }
+
+                item.className = baseClass;
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        ${isMin ? '<span class="text-[10px] text-yellow-700 font-bold uppercase w-8">Pick</span>' : '<span class="w-8"></span>'}
+                        <span class="mono">(${uLabel}, ${vLabel})</span>
+                    </div>
+                    <div class="mono font-bold w-6 text-right">${edge.weight}</div>
+                `;
+                
+                frontierListEl.appendChild(item);
+            });
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) resetVisualizer();
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-emerald-600', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-emerald-700', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                autoPlayLoop();
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start`;
+            btnStart.classList.replace('bg-slate-600', 'bg-emerald-600');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-emerald-700');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', () => {
+                nodesContainerEl.innerHTML = '';
+                generateGraph();
+            });
+            
+            btnReset.addEventListener('click', resetVisualizer);
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

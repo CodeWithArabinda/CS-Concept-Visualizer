@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fibonacci DP Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Array Cell Transitions */
+        .cell-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .array-cell {
+            min-width: 4rem;
+            height: 4rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            border: 2px solid #e2e8f0;
+            background-color: #f8fafc;
+            color: #94a3b8;
+            position: relative;
+        }
+
+        /* Cell States */
+        .cell-empty { background-color: #f1f5f9; border-color: #e2e8f0; color: #cbd5e1; }
+        .cell-reading { 
+            background-color: #dbeafe; 
+            border-color: #3b82f6; 
+            color: #1d4ed8; 
+            transform: scale(1.05); 
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+            z-index: 10;
+        }
+        .cell-calculating { 
+            background-color: #fef08a; 
+            border-color: #eab308; 
+            color: #854d0e; 
+            transform: scale(1.1); 
+            box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.4);
+            z-index: 20;
+        }
+        .cell-computed { 
+            background-color: #dcfce7; 
+            border-color: #22c55e; 
+            color: #166534; 
+        }
+
+        /* SVG Arrow Animations */
+        .arrow-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw-arrow 0.5s ease-out forwards;
+        }
+
+        @keyframes draw-arrow {
+            to { stroke-dashoffset: 0; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header & Controls -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h4l3 9 4-18 3 9h4" />
+                    </svg>
+                    Fibonacci DP Visualizer
+                </h1>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="btn-generate" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200">
+                        Setup Array
+                    </button>
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                    <button id="btn-start" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1 shadow-sm w-36 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Start DP
+                    </button>
+                    <button id="btn-next" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors border border-blue-200">
+                        Next Step
+                    </button>
+                    <button id="btn-reset" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-medium transition-colors border border-rose-200">
+                        Reset
+                    </button>
+                    
+                    <div class="flex items-center gap-2 ml-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <label class="text-xs text-slate-500 font-medium">Speed</label>
+                        <input type="range" id="speed-slider" min="100" max="1500" value="800" class="w-20 accent-blue-600" dir="rtl">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Fields -->
+            <div class="flex flex-col sm:flex-row gap-4 items-end bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="w-full sm:w-64">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Compute Nth Fibonacci (Max 25)</label>
+                    <input type="number" id="input-n" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mono" value="10" min="2" max="25">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left/Center Column: Visualization & Metrics -->
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Dashboard / Status -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Operation</h2>
+                    <p id="step-explanation" class="text-lg font-medium text-slate-800 mono">Ready to compute.</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[120px] text-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1" title="Number of elements calculated in the DP array">DP States Computed</div>
+                        <div class="text-xl font-bold text-blue-600 mono" id="metric-computed">0</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 min-w-[150px] text-center shadow-inner">
+                        <div class="text-[10px] font-bold text-rose-400 uppercase tracking-wider mb-1" title="How many recursive function calls were prevented by storing values">Recursive Calls Avoided</div>
+                        <div class="text-xl font-bold text-rose-600 mono" id="metric-avoided">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DP Array Visualization -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col relative" style="height: 350px;">
+                
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 z-20 flex flex-col gap-2 text-xs font-medium bg-white/90 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="font-bold text-slate-500 uppercase tracking-wider mb-1 border-b pb-1">Legend</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-blue-500 bg-blue-100"></span> Reading Precomputed Value</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-yellow-500 bg-yellow-200"></span> Calculating Current F[i]</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-green-500 bg-green-100"></span> Computed & Stored</div>
+                </div>
+
+                <!-- Array Container (Scrollable horizontally) -->
+                <div class="w-full h-full overflow-x-auto overflow-y-hidden custom-scrollbar relative flex items-center px-8" id="array-scroll-container">
+                    
+                    <div class="relative flex gap-3 pt-12 pb-4" id="dp-array-container">
+                        <!-- SVG overlay for arrows -->
+                        <svg id="arrows-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5;">
+                            <!-- Definitions for arrowheads -->
+                            <defs>
+                                <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                    <polygon points="0 0, 6 3, 0 6" fill="#3b82f6" />
+                                </marker>
+                            </defs>
+                            <!-- Paths injected via JS -->
+                        </svg>
+                        
+                        <!-- Array cells injected via JS -->
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Code Context / Math formulation -->
+            <div class="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-5 text-slate-300 mono text-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-slate-700 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase">Tabulation Approach</div>
+                <div class="flex gap-4">
+                    <div class="w-8 text-slate-500 text-right select-none flex flex-col">
+                        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-blue-400">let</span> F = <span class="text-blue-400">new</span> Array(N + 1);
+                        <span>F[0] = <span class="text-emerald-400">0</span>;</span>
+                        <span>F[1] = <span class="text-emerald-400">1</span>;</span>
+                        <span class="text-fuchsia-400">for</span> (<span class="text-blue-400">let</span> i = 2; i <= N; i++) {
+                        <span class="pl-4">F[i] = F[i-1] + F[i-2];</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Educational Panel -->
+        <aside class="lg:col-span-1 flex flex-col gap-6 h-fit sticky top-24">
+            
+            <!-- Theory Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                    Algorithm Theory
+                </h2>
+                
+                <div class="space-y-5 text-sm text-slate-600">
+                    <div>
+                        <h3 class="font-bold text-slate-800">Overlapping Subproblems</h3>
+                        <p class="mt-1">In a naive recursive approach, computing <span class="font-mono text-xs font-bold text-slate-700">F(4)</span> requires computing <span class="font-mono text-xs text-slate-700">F(3)</span> and <span class="font-mono text-xs text-slate-700">F(2)</span>. However, <span class="font-mono text-xs text-slate-700">F(3)</span> <em>also</em> requires computing <span class="font-mono text-xs text-slate-700">F(2)</span>. This results in calculating the same values repeatedly.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-blue-700">Dynamic Programming</h3>
+                        <p class="mt-1">DP avoids this by storing the result of each subproblem the first time it's computed. The next time it's needed, it simply looks up the value in $O(1)$ time.</p>
+                        <p class="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100"><strong>Tabulation (Bottom-Up):</strong> We build a table (array) iteratively from the smallest subproblems F[0] and F[1] up to F[n].</p>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-4">
+                        <h3 class="font-bold text-blue-900 mb-2 border-b border-blue-200 pb-1">Complexity Comparison</h3>
+                        
+                        <div class="grid grid-cols-1 gap-3 text-xs mt-2">
+                            <div>
+                                <span class="text-blue-800 font-semibold block mb-1">Naive Recursion Time:</span>
+                                <span class="font-mono text-rose-700 font-bold bg-rose-100 px-2 py-0.5 rounded">O(2&spadesuits;ⁿ)</span>
+                                <span class="text-[10px] text-slate-500 block mt-1">Exponential growth. Extremely slow for N > 40.</span>
+                            </div>
+                            <div class="border-t border-blue-100 pt-2">
+                                <span class="text-blue-800 font-semibold block mb-1">DP Time Complexity:</span>
+                                <span class="font-mono text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded">O(n)</span>
+                                <span class="text-[10px] text-slate-500 block mt-1">Linear growth. Instantly calculates massive N.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        let targetN = 10;
+        let naiveCallsMap = []; // Precomputed total recursive calls for each N
+        
+        let stateGenerator = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let currentSpeed = 800; // ms
+
+        // Visual Layout Constants
+        const CELL_WIDTH = 64; // 4rem
+        const GAP = 12; // 0.75rem (gap-3)
+        const TOTAL_CELL_WIDTH = CELL_WIDTH + GAP;
+
+        // DOM Elements
+        const arrayContainerEl = document.getElementById('dp-array-container');
+        const scrollContainerEl = document.getElementById('array-scroll-container');
+        const svgEl = document.getElementById('arrows-svg');
+        
+        const stepExplEl = document.getElementById('step-explanation');
+        const metricComputedEl = document.getElementById('metric-computed');
+        const metricAvoidedEl = document.getElementById('metric-avoided');
+        
+        const inputNEl = document.getElementById('input-n');
+        const btnGenerate = document.getElementById('btn-generate');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const btnReset = document.getElementById('btn-reset');
+        const speedSlider = document.getElementById('speed-slider');
+
+        // --- Math Helpers ---
+        function precomputeNaiveCalls(maxN) {
+            naiveCallsMap = new Array(maxN + 1).fill(0);
+            naiveCallsMap[0] = 1;
+            if (maxN >= 1) naiveCallsMap[1] = 1;
+            for (let i = 2; i <= maxN; i++) {
+                naiveCallsMap[i] = naiveCallsMap[i-1] + naiveCallsMap[i-2] + 1;
+            }
+        }
+
+        // --- Initialization & Setup ---
+        function init() {
+            setupVisualizer();
+            setupEventListeners();
+        }
+
+        function setupVisualizer() {
+            stopAutoPlay();
+            
+            let n = parseInt(inputNEl.value, 10);
+            if (isNaN(n) || n < 2) n = 2;
+            if (n > 25) {
+                alert("N is capped at 25 to ensure the visualizer fits comfortably on screen.");
+                n = 25;
+                inputNEl.value = 25;
+            }
+            targetN = n;
+            
+            precomputeNaiveCalls(targetN);
+            
+            // Build the initial empty UI
+            arrayContainerEl.querySelectorAll('.array-cell').forEach(e => e.remove());
+            svgEl.innerHTML = `
+                <defs>
+                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                        <polygon points="0 0, 6 3, 0 6" fill="#3b82f6" />
+                    </marker>
+                </defs>
+            `;
+            
+            // Initialize empty array visual
+            let initialDP = new Array(targetN + 1).fill(null);
+            renderArray(initialDP, null, [], false);
+            
+            // Setup generator
+            stateGenerator = fibonacciDPGenerator(targetN);
+            
+            // Reset text/metrics
+            stepExplEl.innerHTML = `DP Array of size ${targetN + 1} initialized. Click 'Start DP' to begin.`;
+            metricComputedEl.innerText = "0";
+            metricAvoidedEl.innerText = "0";
+
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start DP`;
+            btnStart.disabled = false;
+            btnNext.disabled = false;
+            
+            // Reset scroll
+            setTimeout(() => { scrollContainerEl.scrollLeft = 0; }, 10);
+        }
+
+        // --- Algorithm Generator (Animation Driver) ---
+        function* fibonacciDPGenerator(n) {
+            let dp = new Array(n + 1).fill(null);
+            let computed = 0;
+            let avoided = 0;
+
+            // Step 1: Base Case F[0]
+            yield {
+                dp: [...dp], curr: 0, read: [], phase: 'calc',
+                exp: `Setting base case: <span class="font-bold text-blue-600">F[0] = 0</span>.`,
+                computed, avoided
+            };
+            dp[0] = 0;
+            computed++;
+            yield {
+                dp: [...dp], curr: 0, read: [], phase: 'done',
+                exp: `<span class="text-green-600 font-bold">F[0]</span> computed and stored.`,
+                computed, avoided
+            };
+
+            // Step 2: Base Case F[1]
+            if (n >= 1) {
+                yield {
+                    dp: [...dp], curr: 1, read: [], phase: 'calc',
+                    exp: `Setting base case: <span class="font-bold text-blue-600">F[1] = 1</span>.`,
+                    computed, avoided
+                };
+                dp[1] = 1;
+                computed++;
+                avoided = naiveCallsMap[1] - computed; // technically 0
+                yield {
+                    dp: [...dp], curr: 1, read: [], phase: 'done',
+                    exp: `<span class="text-green-600 font-bold">F[1]</span> computed and stored.`,
+                    computed, avoided
+                };
+            }
+
+            // Step 3: Iterative DP
+            for (let i = 2; i <= n; i++) {
+                // Phase A: Reading
+                yield {
+                    dp: [...dp], curr: i, read: [i-1, i-2], phase: 'reading',
+                    exp: `To calculate F[${i}], we look up previously computed values <span class="font-bold text-blue-600">F[${i-1}]</span> and <span class="font-bold text-blue-600">F[${i-2}]</span> in O(1) time.`,
+                    computed, avoided
+                };
+
+                // Phase B: Calculating
+                let sum = dp[i-1] + dp[i-2];
+                yield {
+                    dp: [...dp], curr: i, read: [i-1, i-2], phase: 'calc',
+                    exp: `Calculating <span class="font-bold text-yellow-600">F[${i}] = ${dp[i-1]} + ${dp[i-2]} = ${sum}</span>.`,
+                    computed, avoided, sumVal: sum
+                };
+
+                // Phase C: Done
+                dp[i] = sum;
+                computed++;
+                
+                // Calculate avoided calls:
+                // If we ran naive recursion for F(i), we would have made `naiveCallsMap[i]` total function calls.
+                // In DP, we just did 1 addition (total computes so far = i+1).
+                let naiveEquiv = naiveCallsMap[i];
+                avoided = naiveEquiv - computed;
+
+                yield {
+                    dp: [...dp], curr: i, read: [], phase: 'done',
+                    exp: `Stored <span class="text-green-600 font-bold">F[${i}] = ${dp[i]}</span>. By reusing data, we've avoided <span class="text-rose-600 font-bold">${avoided}</span> recursive calls so far!`,
+                    computed, avoided
+                };
+            }
+        }
+
+        // --- Rendering Engine ---
+        function renderState(state) {
+            const { dp, curr, read, phase, exp, computed, avoided, sumVal } = state;
+
+            // Update Metrics & Explanation
+            stepExplEl.innerHTML = exp;
+            metricComputedEl.innerText = computed;
+            metricAvoidedEl.innerText = avoided.toLocaleString();
+
+            renderArray(dp, curr, read, phase, sumVal);
+        }
+
+        function renderArray(dp, curr, read, phase, sumVal = null) {
+            // Re-render cells
+            const existingCells = arrayContainerEl.querySelectorAll('.array-cell');
+            
+            // If first time, construct HTML, else update classes
+            if (existingCells.length === 0) {
+                dp.forEach((val, i) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'array-cell cell-transition cell-empty mono';
+                    cell.id = `cell-${i}`;
+                    
+                    const valSpan = document.createElement('span');
+                    valSpan.className = 'text-xl font-bold mt-1 tracking-wider';
+                    valSpan.id = `cell-val-${i}`;
+                    valSpan.innerHTML = val !== null ? val : '&nbsp;';
+                    
+                    const idxSpan = document.createElement('span');
+                    idxSpan.className = 'text-[10px] text-slate-400 absolute top-1 left-2 font-medium';
+                    idxSpan.innerText = `F[${i}]`;
+
+                    cell.appendChild(idxSpan);
+                    cell.appendChild(valSpan);
+                    arrayContainerEl.appendChild(cell);
+                });
+            } else {
+                dp.forEach((val, i) => {
+                    const cell = document.getElementById(`cell-${i}`);
+                    const valSpan = document.getElementById(`cell-val-${i}`);
+                    
+                    // Reset classes
+                    cell.className = 'array-cell cell-transition mono ';
+                    
+                    if (i === curr) {
+                        if (phase === 'calc') {
+                            cell.classList.add('cell-calculating');
+                            valSpan.innerHTML = sumVal !== null ? sumVal : (val !== null ? val : '&nbsp;');
+                        } else if (phase === 'reading') {
+                            cell.classList.add('cell-empty');
+                            cell.style.borderStyle = 'dashed'; // Indicate targeting
+                            cell.style.borderColor = '#94a3b8';
+                            valSpan.innerHTML = '?';
+                        } else if (phase === 'done') {
+                            cell.classList.add('cell-computed');
+                            valSpan.innerHTML = val;
+                            cell.style.borderStyle = 'solid';
+                        }
+                    } else if (read && read.includes(i)) {
+                        cell.classList.add('cell-reading');
+                        valSpan.innerHTML = val;
+                    } else if (val !== null) {
+                        cell.classList.add('cell-computed');
+                        valSpan.innerHTML = val;
+                        cell.style.borderStyle = 'solid';
+                    } else {
+                        cell.classList.add('cell-empty');
+                        valSpan.innerHTML = '&nbsp;';
+                        cell.style.borderStyle = 'solid';
+                    }
+                });
+            }
+
+            // Draw Arrows
+            const svgsDefs = `
+                <defs>
+                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                        <polygon points="0 0, 6 3, 0 6" fill="#3b82f6" />
+                    </marker>
+                </defs>
+            `;
+            svgEl.innerHTML = svgsDefs;
+
+            if (phase === 'reading' && read && read.length > 0 && curr !== null) {
+                read.forEach(srcIdx => {
+                    // Calculate positions. Cell width = 64, gap = 12.
+                    const srcX = (srcIdx * TOTAL_CELL_WIDTH) + (CELL_WIDTH / 2);
+                    const destX = (curr * TOTAL_CELL_WIDTH) + (CELL_WIDTH / 2);
+                    
+                    // Top curve
+                    const startY = 0; // Relative to svg container covering padding
+                    const destY = 0;
+                    const controlY = -40 - ((curr - srcIdx) * 10); // Higher curve for further jumps
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.setAttribute("d", `M ${srcX} ${startY} Q ${(srcX+destX)/2} ${controlY} ${destX - 5} ${destY - 5}`);
+                    path.setAttribute("fill", "transparent");
+                    path.setAttribute("stroke", "#3b82f6");
+                    path.setAttribute("stroke-width", "2");
+                    path.setAttribute("marker-end", "url(#arrowhead)");
+                    path.setAttribute("class", "arrow-path");
+
+                    svgEl.appendChild(path);
+                });
+            }
+
+            // Auto-scroll logic
+            if (curr !== null) {
+                const targetScrollLeft = (curr * TOTAL_CELL_WIDTH) - (scrollContainerEl.clientWidth / 2) + CELL_WIDTH;
+                scrollContainerEl.scrollTo({
+                    left: Math.max(0, targetScrollLeft),
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // --- Controls & Playback ---
+        async function runNextStep() {
+            if (!stateGenerator) setupVisualizer();
+            if (!stateGenerator) return false;
+            
+            const result = stateGenerator.next();
+            if (!result.done) {
+                renderState(result.value);
+                return true;
+            } else {
+                stopAutoPlay();
+                btnStart.disabled = true;
+                btnNext.disabled = true;
+                stepExplEl.innerHTML = `<strong>DP Tabulation Complete!</strong> Calculated F[${targetN}]. The $O(n)$ optimization is finished.`;
+                return false;
+            }
+        }
+
+        async function autoPlayLoop() {
+            if (!isPlaying) return;
+            const hasMore = await runNextStep();
+            
+            if (hasMore && isPlaying) {
+                playInterval = setTimeout(autoPlayLoop, currentSpeed);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                if(!stateGenerator) setupVisualizer();
+                
+                isPlaying = true;
+                btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg> Pause`;
+                btnStart.classList.replace('bg-blue-600', 'bg-slate-600');
+                btnStart.classList.replace('hover:bg-blue-700', 'hover:bg-slate-700');
+                btnNext.disabled = true;
+                btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                autoPlayLoop();
+            }
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            btnStart.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> Start DP`;
+            btnStart.classList.replace('bg-slate-600', 'bg-blue-600');
+            btnStart.classList.replace('hover:bg-slate-700', 'hover:bg-blue-700');
+            btnNext.disabled = false;
+            btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnReset.addEventListener('click', () => {
+                setupVisualizer();
+            });
+            
+            btnStart.addEventListener('click', toggleAutoPlay);
+            
+            btnNext.addEventListener('click', () => {
+                stopAutoPlay();
+                runNextStep();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                // Invert logic: right slider position = less delay = faster
+                currentSpeed = e.target.max - e.target.value + parseInt(e.target.min);
+            });
+
+            inputNEl.addEventListener('input', () => { stateGenerator = null; stopAutoPlay(); });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>
