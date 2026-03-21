@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CS Visual Learning Lab - Dashboard</title>
+    <title>CS Concept Visualizer - Interactive Learning</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+
     <div class="container">
         <div class="top-nav">
             <button class="theme-toggle" id="themeToggle">
@@ -16,8 +19,8 @@
         </div>
 
         <header>
-            <h1>CS Visual Learning Lab</h1>
-            <p>Explore and understand algorithms through interactive visualizations.</p>
+            <h1>CS Concept Visualizer</h1>
+            <p>Master algorithms and data structures through interactive, real-time visualizations with a premium learning experience.</p>
         </header>
 
         <main class="dashboard">
@@ -25,25 +28,25 @@
             <section class="category">
                 <h2>Data Structures</h2>
                 <div class="grid">
-                    <a href="data-structures/stack/index.html" class="card">
+                    <a href="cs-visual-learning-lab/data-structures/stack/index.html" class="card">
                         <div class="icon">📚</div>
                         <h3>Stack</h3>
-                        <p>LIFO (Last In, First Out) structure.</p>
+                        <p>LIFO (Last In, First Out) structure with interactive push/pop.</p>
                     </a>
-                    <a href="data-structures/queue/index.html" class="card">
+                    <a href="cs-visual-learning-lab/data-structures/queue/index.html" class="card">
                         <div class="icon">🚶‍♂️</div>
                         <h3>Queue</h3>
-                        <p>FIFO (First In, First Out) structure.</p>
+                        <p>FIFO (First In, First Out) structure with enqueue/dequeue operations.</p>
                     </a>
-                    <a href="data-structures/linked-list/index.html" class="card">
+                    <a href="cs-visual-learning-lab/data-structures/linked-list/index.html" class="card">
                         <div class="icon">🔗</div>
                         <h3>Linked List</h3>
-                        <p>Linear collection of data elements.</p>
+                        <p>Linear collection of dynamic nodes and pointers.</p>
                     </a>
-                    <a href="data-structures/heap/index.html" class="card">
+                    <a href="#" class="card" onclick="alert('Heap visualizer coming soon!'); return false;">
                         <div class="icon">⛰️</div>
                         <h3>Heap</h3>
-                        <p>Tree-based data structure.</p>
+                        <p>Tree-based data structure satisfying the heap property.</p>
                     </a>
                 </div>
             </section>
@@ -52,42 +55,42 @@
             <section class="category">
                 <h2>Sorting Algorithms</h2>
                 <div class="grid">
-                    <a href="sorting/bubble-sort/index.html" class="card">
+                    <a href="cs-visual-learning-lab/sorting/bubble-sort.html" class="card">
                         <div class="icon">🧼</div>
                         <h3>Bubble Sort</h3>
-                        <p>Simple comparison-based sorting.</p>
+                        <p>Simple comparison-based sorting with element swapping.</p>
                     </a>
-                    <a href="sorting/selection-sort/index.html" class="card">
+                    <a href="cs-visual-learning-lab/sorting/Selection Sort.html" class="card">
                         <div class="icon">🎯</div>
                         <h3>Selection Sort</h3>
-                        <p>In-place comparison sorting.</p>
+                        <p>In-place comparison sort finding the minimum element.</p>
                     </a>
-                    <a href="sorting/quick-sort/index.html" class="card">
+                    <a href="cs-visual-learning-lab/sorting/quick-sort.html" class="card">
                         <div class="icon">⚡</div>
                         <h3>Quick Sort</h3>
-                        <p>Efficient divide and conquer algo.</p>
+                        <p>Efficient divide and conquer sorting algorithm.</p>
                     </a>
-                    <a href="sorting/merge-sort/index.html" class="card">
+                    <a href="cs-visual-learning-lab/sorting/merge-sort.html" class="card">
                         <div class="icon">🧩</div>
                         <h3>Merge Sort</h3>
-                        <p>Stable divide and conquer sorting.</p>
+                        <p>Stable divide and conquer sorting with O(n log n) time.</p>
                     </a>
                 </div>
             </section>
 
             <!-- Searching -->
             <section class="category">
-                <h2>Searching</h2>
+                <h2>Searching Algorithms</h2>
                 <div class="grid">
-                    <a href="searching/linear-search/index.html" class="card">
+                    <a href="cs-visual-learning-lab/searching/linear-search.html" class="card">
                         <div class="icon">🔍</div>
                         <h3>Linear Search</h3>
-                        <p>Sequential search through items.</p>
+                        <p>Sequential search through elements one by one.</p>
                     </a>
-                    <a href="searching/binary-search/index.html" class="card">
+                    <a href="cs-visual-learning-lab/searching/binary-search.html" class="card">
                         <div class="icon">⚖️</div>
                         <h3>Binary Search</h3>
-                        <p>Logarithmic search in sorted list.</p>
+                        <p>Logarithmic search dividing sorted lists in half.</p>
                     </a>
                 </div>
             </section>
@@ -96,15 +99,15 @@
             <section class="category">
                 <h2>Backtracking</h2>
                 <div class="grid">
-                    <a href="backtracking/n-queens/index.html" class="card">
+                    <a href="cs-visual-learning-lab/backtracking/n-queens/N-Queens Algorithm Visualizer.html" class="card">
                         <div class="icon">👑</div>
                         <h3>N-Queens</h3>
-                        <p>Place N queens on a chessboard.</p>
+                        <p>Classic chess puzzle to place N queens without attacks.</p>
                     </a>
-                    <a href="backtracking/rat-in-maze/index.html" class="card">
+                    <a href="cs-visual-learning-lab/backtracking/rat-in-maze/index.html" class="card">
                         <div class="icon">🐀</div>
                         <h3>Rat in a Maze</h3>
-                        <p>Find path through a grid maze.</p>
+                        <p>Find a valid path through a complex grid maze.</p>
                     </a>
                 </div>
             </section>
@@ -113,30 +116,30 @@
             <section class="category">
                 <h2>Graph Algorithms</h2>
                 <div class="grid">
-                    <a href="graph-algorithms/bfs/index.html" class="card">
+                    <a href="cs-visual-learning-lab/graph-algorithms/bfs.html" class="card">
                         <div class="icon">🌐</div>
                         <h3>BFS</h3>
-                        <p>Breadth-First Search traversal.</p>
+                        <p>Level-by-level Breadth-First Search traversal.</p>
                     </a>
-                    <a href="graph-algorithms/dfs/index.html" class="card">
+                    <a href="cs-visual-learning-lab/graph-algorithms/dfs.html" class="card">
                         <div class="icon">🌲</div>
                         <h3>DFS</h3>
-                        <p>Depth-First Search traversal.</p>
+                        <p>Deep-dive tree and graph Depth-First Search exploration.</p>
                     </a>
-                    <a href="graph-algorithms/dijkstra/index.html" class="card">
+                    <a href="cs-visual-learning-lab/graph-algorithms/dijkstra.html" class="card">
                         <div class="icon">🛣️</div>
-                        <h3>Dijkstra</h3>
-                        <p>Shortest path algorithm.</p>
+                        <h3>Dijkstra's</h3>
+                        <p>Find the shortest path between nodes with non-negative edges.</p>
                     </a>
-                    <a href="graph-algorithms/kruskal/index.html" class="card">
+                    <a href="cs-visual-learning-lab/graph-algorithms/kruskal.html" class="card">
                         <div class="icon">🏗️</div>
-                        <h3>Kruskal</h3>
-                        <p>Minimum Spanning Tree algorithm.</p>
+                        <h3>Kruskal's MST</h3>
+                        <p>Greedy optimization to find the Minimum Spanning Tree.</p>
                     </a>
-                    <a href="graph-algorithms/warshall/index.html" class="card">
+                    <a href="cs-visual-learning-lab/graph-algorithms/warshall.html" class="card">
                         <div class="icon">🔄</div>
-                        <h3>Warshall</h3>
-                        <p>All-pairs shortest path.</p>
+                        <h3>Floyd-Warshall</h3>
+                        <p>Dynamic programming for all-pairs shortest paths.</p>
                     </a>
                 </div>
             </section>
@@ -145,22 +148,22 @@
             <section class="category">
                 <h2>Operating Systems</h2>
                 <div class="grid">
-                    <a href="operating-systems/cpu-scheduling/index.html" class="card">
+                    <a href="#" class="card" onclick="alert('CPU Scheduling coming soon!'); return false;">
                         <div class="icon">💻</div>
                         <h3>CPU Scheduling</h3>
-                        <p>Process management algorithms.</p>
+                        <p>Process management optimization techniques.</p>
                     </a>
-                    <a href="operating-systems/page-replacement/index.html" class="card">
+                    <a href="#" class="card" onclick="alert('Page Replacement coming soon!'); return false;">
                         <div class="icon">📖</div>
                         <h3>Page Replacement</h3>
-                        <p>Memory management algorithms.</p>
+                        <p>Memory management and optimization algorithms.</p>
                     </a>
                 </div>
             </section>
         </main>
 
         <footer>
-            <p>&copy; 2026 CS Visual Learning Lab. Designed for Clarity.</p>
+            <p>&copy; 2026 CS Concept Visualizer. Building the fundamentals visually.</p>
         </footer>
     </div>
 
@@ -169,11 +172,11 @@
         const themeIcon = document.getElementById('themeIcon');
         const themeText = document.getElementById('themeText');
         
-        // Check for saved theme preference or system preference
+        // System preference & saved setting
         const savedTheme = localStorage.getItem('theme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         
-        // Initialize theme
+        // Setup initial theme
         if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
             document.documentElement.setAttribute('data-theme', 'dark');
             updateToggleUI('dark');
@@ -182,6 +185,7 @@
             updateToggleUI('light');
         }
         
+        // Toggle theme on click
         themeToggle.addEventListener('click', () => {
             const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
